@@ -7,6 +7,9 @@ import os
 from models import MultiFrameResNet, SimpleAudioCNN
 
 # --- 配置参数 ---
+MODEL_DIR = "/home/SONY/s7000043396/Downloads/demo/model"
+VIDEO_MODEL_PATH = os.path.join(MODEL_DIR, "video_model_best.pth")
+AUDIO_MODEL_PATH = os.path.join(MODEL_DIR, "audio_model_best.pth")
 VIDEO_PATH = "/home/SONY/s7000043396/Downloads/demo/video/Virginia Tech vs. Syracuse Condensed Game ｜ 2025-26 ACC Men's Basketball [E4Wza6tUOWY].webm"
 OUTPUT_DIR = "/home/SONY/s7000043396/Downloads/demo/output"
 OUTPUT_FILENAME = "highlight_result.json"

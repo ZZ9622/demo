@@ -1,0 +1,11 @@
+{
+  "layout": "3x2",
+  "mapping": [
+    {"grid_pos": [0,0], "file": "atc1_cam_43.mp4"},
+    {"grid_pos": [0,1], "file": "atc2_render_cam_45.mp4"},
+    {"grid_pos": [0,2], "file": "atc3_render_cam_0.mp4"},
+    {"grid_pos": [1,0], "file": "atc4_render_cam_36.mp4"},
+    {"grid_pos": [1,1], "file": "def2_render_cam_39.mp4"},
+    {"grid_pos": [1,2], "file": "int1_render_cam_9.mp4"}
+  ]
+}
