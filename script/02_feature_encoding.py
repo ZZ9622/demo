@@ -1,8 +1,8 @@
 import numpy as np
 import json
 import os
-# import torch  # 本地部署时开启
-# from transformers import AutoModel  # 本地部署时开启
+import torch  # 本地部署时开启
+from transformers import AutoModel  # 本地部署时开启
 
 # --- 配置 ---
 BASE_DIR = "/home/SONY/s7000043396/Downloads/demo/script"
@@ -13,8 +13,8 @@ def stage1_feature_encoding():
     print("start to encode the mosaic preview video using InternVideo2.5...")
     
     # [本地部署接口]
-    # model = AutoModel.from_pretrained("OpenGVLab/InternVideo2-5-1B", trust_remote_code=True).cuda()
-    # features = model.encode_video(MOSAIC_VIDEO)
+    model = AutoModel.from_pretrained("OpenGVLab/InternVideo2-5-1B", trust_remote_code=True).cuda()
+    features = model.encode_video(MOSAIC_VIDEO)
     
     # [当前模拟逻辑]
     duration = 4 
