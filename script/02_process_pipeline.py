@@ -12,7 +12,7 @@ def run_pipeline():
         layout = json.load(f)
     video_list = [item['file'] for item in layout['mapping']]
     
-    print(f"检测到 {len(video_list)} 路机位输入。")
+    print(f"found {len(video_list)} cameras input.")
     
     # 2. 模拟特征提取
     duration = 4 
@@ -49,7 +49,7 @@ def run_pipeline():
 
     otio_path = os.path.join(BASE_DIR, "timeline.otio")
     otio.adapters.write_to_file(timeline, otio_path)
-    print(f"--- 8路机位 Pipeline 运行完成！---")
+    print(f"8 cameras pipeline finished")
 
 if __name__ == "__main__":
     run_pipeline()
