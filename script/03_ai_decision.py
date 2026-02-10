@@ -75,8 +75,11 @@ def find_best_cam_with_qwen(mosaic_image_path, d_model, d_proc):
     image = Image.open(mosaic_image_path).convert("RGB")
     
     prompt_text = (
-        "In this 2x4 grid of camera views, which camera number provides the best close-up view "
-        "of the slam dunk? Reply with ONLY the number (0-7)."
+
+    "In this 2x4 grid of camera views, which camera number provides the best close-up view "
+
+    "of the slam dunk? Reply with ONLY the number (0-7)."
+
     )
     
     # 严格遵循 Transformers 要求的格式
