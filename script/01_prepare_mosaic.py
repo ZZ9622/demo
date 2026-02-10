@@ -12,51 +12,37 @@ LAYOUT_FILE = os.path.join(SCRIPT_DIR, "Camera_Layout.json")
 
 def create_mosaic():
     os.makedirs(SCRIPT_DIR, exist_ok=True)
-    
-    # 1. 获取所有 MP4 文件并排序
     videos = sorted(glob.glob(os.path.join(DATA_DIR, "*.mp4")))[:8]
+    
     if len(videos) < 8:
-        print("error: less than 8 videos")
+        print(f"error: only found {len(videos)} videos")
         return
 
-    print(f"found {len(videos)} videos, building 4x2 mosaic...")
+    print(f"✅ found {len(videos)} videos, starting to create mosaic...")
 
-    # 2. 生成 FFmpeg 复杂滤镜命令 (xstack 4x2 布局)
-    # 5090 性能极强，我们直接使用 h264_nvenc 硬件编码
-    inputs = ""
-    for v in videos:
-        inputs += f"-i {v} "
+    # 构建输入参数
+    inputs = " ".join([f"-i {v}" for v in videos])
     
-    filter_complex = (
-        "[0:v][1:v][2:v][3:v]"
-        "[4:v][5:v][6:v][7:v]"
-        "xstack=inputs=8:layout=0_0|w0_0|w0+w1_0|w0+w1+w2_0|0_h0|w4_h0|w4+w5_h0|w4+w5+w6_h0"
-        "[v]"
-    )
+    # 核心修改：缩放每路视频至 960x540，然后拼接
+    scale_filters = "".join([f"[{i}:v]scale=960:540[v{i}];" for i in range(8)])
+    stack_layout = "xstack=inputs=8:layout=0_0|w0_0|w0+w1_0|w0+w1+w2_0|0_h0|w4_h0|w4+w5_h0|w4+w5+w6_h0"
+    
+    filter_complex = f"{scale_filters}[v0][v1][v2][v3][v4][v5][v6][v7]{stack_layout}[outv]"
 
+    # 使用 NVENC 加速
     cmd = (
-        f"ffmpeg {inputs} -filter_complex \"{filter_complex}\" "
-        f"-map \"[v]\" -c:v h264_nvenc -preset p7 -cq 19 -y {OUTPUT_MOSAIC}"
+        f"ffmpeg -hide_banner {inputs} -filter_complex \"{filter_complex}\" "
+        f"-map \"[outv]\" -c:v h264_nvenc -preset p4 -cq 24 -y {OUTPUT_MOSAIC}"
     )
 
-    print("executing GPU hardware acceleration mosaic...")
+    print("🚀 executing GPU accelerated mosaic creation...")
     subprocess.run(cmd, shell=True, check=True)
 
-    # 3. 生成物理映射 JSON
-    layout_data = {"layout": "4x2", "mapping": []}
-    for idx, vid_path in enumerate(videos):
-        layout_data["mapping"].append({
-            "camera_id": idx,
-            "file": os.path.basename(vid_path),
-            "row": 0 if idx < 4 else 1,
-            "col": idx % 4
-        })
-    
+    # 生成映射文件
+    layout_data = {"layout": "4x2", "mapping": [{"camera_id": i, "file": os.path.basename(v)} for i, v in enumerate(videos)]}
     with open(LAYOUT_FILE, "w") as f:
         json.dump(layout_data, f, indent=4)
-    
-    print(f"mosaic completed: {OUTPUT_MOSAIC}")
-    print(f"mapping table generated: {LAYOUT_FILE}")
+    print(f"✨ mosaic preview video generated: {OUTPUT_MOSAIC}")
 
 if __name__ == "__main__":
     create_mosaic()

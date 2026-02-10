@@ -6,6 +6,7 @@ import torch
 from PIL import Image
 from transformers import AutoProcessor, AutoModel
 from datetime import timedelta
+from transformers import SiglipImageProcessor
 
 # --- 配置 ---
 BASE_DIR = "/home/SONY/s7000043396/Downloads/demo/script"
@@ -22,7 +23,8 @@ def extract_features():
     # 加载模型到 GPU，使用 BF16 精度 (5090 最佳甜点精度)
     device = "cuda"
     model = AutoModel.from_pretrained(MODEL_ID, torch_dtype=torch.bfloat16).to(device)
-    processor = AutoProcessor.from_pretrained(MODEL_ID)
+    #processor = AutoProcessor.from_pretrained(MODEL_ID)
+    processor = SiglipImageProcessor.from_pretrained(MODEL_ID)
     
     cap = cv2.VideoCapture(MOSAIC_VIDEO)
     fps = cap.get(cv2.CAP_PROP_FPS)
