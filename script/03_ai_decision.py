@@ -118,8 +118,8 @@ def find_best_cam_with_qwen(mosaic_image_path, d_model, d_proc):
 
     # 4. 解析结果 (逻辑保持不变)
     cam_map = {
-        "0": "def2_cam_00.mp4", "1": "def2_cam_01.mp4", "2": "def2_cam_02.mp4", "3": "def2_cam_03.mp4",
-        "4": "def2_cam_46.mp4", "5": "def2_cam_47.mp4", "6": "def2_cam_48.mp4", "7": "def2_cam_73.mp4"
+        "0": "def2_cam_00.mp4", "1": "def2_cam_08.mp4", "2": "def2_cam_15.mp4", "3": "def2_cam_23.mp4",
+        "4": "def2_cam_45.mp4", "5": "def2_cam_51.mp4", "6": "def2_cam_66.mp4", "7": "def2_cam_73.mp4"
     }
     
     import re
