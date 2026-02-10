@@ -4,103 +4,74 @@ import os
 import cv2
 import torch
 from PIL import Image
+from transformers import AutoProcessor, AutoModel
 from datetime import timedelta
 
-# ==========================================
-# 1. 模型加载区 (根据硬件选择)
-# ==========================================
-
-# --- [Mac M3 Pro 方案] SigLIP (Google SOTA, 优于 CLIP) ---
-from transformers import AutoProcessor, AutoModel
-MODEL_ID = "google/siglip-so400m-patch14-384"
-device = "mps" if torch.backends.mps.is_available() else "cpu"
-print(f"🚀 正在使用 Mac 加速设备: {device}")
-
-# 加载模型
-model = AutoModel.from_pretrained(MODEL_ID).to(device)
-processor = AutoProcessor.from_pretrained(MODEL_ID)
-
-# --- [CUDA / Linux 方案] InternVideo2.5 (仅供参考，取消注释使用) ---
-# """
-# import torch
-# from transformers import AutoModel, AutoProcessor
-# MODEL_ID = "OpenGVLab/InternVideo2-5-1B"
-# device = "cuda"
-# model = AutoModel.from_pretrained(MODEL_ID, trust_remote_code=True).to(device)
-# # 注意: InternVideo 需要特定的预处理函数，通常需 clone 官方 repo
-# """
-
-# ==========================================
-# 2. 配置路径
-# ==========================================
+# --- 配置 ---
 BASE_DIR = "/home/SONY/s7000043396/Downloads/demo/script"
-MOSAIC_VIDEO = os.path.join(BASE_DIR, "mosaic_preview_720p.mp4")
+MOSAIC_VIDEO = os.path.join(BASE_DIR, "mosaic_preview.mp4")
 FEATURE_FILE = os.path.join(BASE_DIR, "Mosaic_preview_features.npy")
 METADATA_FILE = os.path.join(BASE_DIR, "feature_metadata.json")
 
+# 模型：Google SigLIP (目前 Transformer Vision Encoder 的 SOTA)
+MODEL_ID = "google/siglip-so400m-patch14-384"
+
 def extract_features():
-    print(f"--- 开始提取特征 (Model: {MODEL_ID}) ---")
+    print(f"loading SigLIP model: {MODEL_ID}...")
+    
+    # 加载模型到 GPU，使用 BF16 精度 (5090 最佳甜点精度)
+    device = "cuda"
+    model = AutoModel.from_pretrained(MODEL_ID, torch_dtype=torch.bfloat16).to(device)
+    processor = AutoProcessor.from_pretrained(MODEL_ID)
     
     cap = cv2.VideoCapture(MOSAIC_VIDEO)
     fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    duration = int(frame_count / fps)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    duration = int(total_frames / fps)
     
     features_list = []
     metadata = []
     
-    print(f"视频总时长: {duration} 秒. 采样率: 1 fps")
+    print(f"video duration: {duration}s | sampling rate: 1 FPS | starting fast extraction...")
 
     for t in range(duration):
-        # 精准跳转到第 t 秒
         cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000)
         ret, frame = cap.read()
         if not ret: break
         
-        # BGR -> RGB
+        # OpenCV (BGR) -> PIL (RGB)
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         
-        # ==========================================
-        # 推理逻辑 (Mac Active)
-        # ==========================================
-        inputs = processor(images=image, return_tensors="pt").to(device)
+        # 预处理
+        inputs = processor(images=image, return_tensors="pt").to(device, dtype=torch.bfloat16)
+        
         with torch.no_grad():
-            # SigLIP 提取图像特征
+            # 提取特征
             image_features = model.get_image_features(**inputs)
-            # 归一化 (便于后续计算余弦相似度)
+            # 归一化 (关键步骤)
             image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
             
-        features_list.append(image_features.cpu().numpy())
-
-        # ==========================================
-        # 推理逻辑 (CUDA Option - Commented)
-        # ==========================================
-        # inputs = preprocess_internvideo(frame).to(device)
-        # with torch.no_grad():
-        #     feat = model.encode_video(inputs)
-        #     features_list.append(feat.cpu().numpy())
-
-        # 构建元数据
+        features_list.append(image_features.cpu().float().numpy()) # 转回 float32 存盘
+        
+        # 构建元数据索引
         metadata.append({
             "timestamp_sec": t,
-            "ltc": f"14:00:{t:02d}:00", # 模拟 2026 工业级 LTC
-            "grid_layout": "4x2"
+            "ltc": (f"14:00:{t//60:02d}:{t%60:02d}:00"), # 模拟时间码
+            "frame_idx": int(t * fps)
         })
         
         if t % 10 == 0:
-            print(f"已处理 {t}/{duration} 秒...")
+            print(f"processed {t}/{duration} seconds...", end="\r")
 
     cap.release()
     
-    # 保存结果
-    if features_list:
-        final_matrix = np.vstack(features_list)
-        np.save(FEATURE_FILE, final_matrix)
-        with open(METADATA_FILE, "w") as f:
-            json.dump(metadata, f, indent=4)
-        print(f"✅ 特征提取完成! 矩阵形状: {final_matrix.shape}")
-    else:
-        print("❌ 错误: 未提取到任何特征")
+    # 保存
+    final_matrix = np.vstack(features_list)
+    np.save(FEATURE_FILE, final_matrix)
+    with open(METADATA_FILE, "w") as f:
+        json.dump(metadata, f, indent=4)
+        
+    print(f"\nfeatures extracted: {final_matrix.shape}")
 
 if __name__ == "__main__":
     extract_features()
