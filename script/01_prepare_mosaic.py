@@ -7,8 +7,10 @@ import glob
 BASE_DIR = "/home/SONY/s7000043396/Downloads/demo"
 DATA_DIR = os.path.join(BASE_DIR, "data/demo-data")
 SCRIPT_DIR = os.path.join(BASE_DIR, "script")
-OUTPUT_MOSAIC = os.path.join(SCRIPT_DIR, "mosaic_preview.mp4")
-LAYOUT_FILE = os.path.join(SCRIPT_DIR, "Camera_Layout.json")
+OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+OUTPUT_MOSAIC = os.path.join(OUTPUT_DIR, "mosaic_preview.mp4")
+LAYOUT_FILE = os.path.join(OUTPUT_DIR, "Camera_Layout.json")
 
 def create_mosaic():
     os.makedirs(SCRIPT_DIR, exist_ok=True)

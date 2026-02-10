@@ -2,9 +2,12 @@ import subprocess
 import os
 
 # --- 配置 ---
-BASE_DIR = "/home/SONY/s7000043396/Downloads/demo/script"
-DATA_DIR = "/home/SONY/s7000043396/Downloads/demo/data/demo-data"
-OUTPUT_VIDEO = os.path.join(BASE_DIR, "final_highlight_5090.mp4")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
+DATA_DIR = os.path.join(PROJECT_DIR, "data/demo-data")
+OUTPUT_DIR = os.path.join(PROJECT_DIR, "output")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+OUTPUT_VIDEO = os.path.join(OUTPUT_DIR, "final_highlight_5090.mp4")
 
 def render_video(decision_results):
     """
@@ -13,7 +16,7 @@ def render_video(decision_results):
     """
     
     # 创建一个 FFmpeg concat 临时文件
-    concat_file = os.path.join(BASE_DIR, "concat_list.txt")
+    concat_file = os.path.join(OUTPUT_DIR, "concat_list.txt")
     
     with open(concat_file, "w") as f:
         for clip in decision_results:

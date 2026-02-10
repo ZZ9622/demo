@@ -13,10 +13,14 @@ import opentimelineio as otio
 
 # --- 路径配置 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-VIDEO_DIR = os.path.join(BASE_DIR, "../data/demo-data")
-FEATURE_PATH = os.path.join(BASE_DIR, "Mosaic_preview_features.npy")
-MOSAIC_PREVIEW_DIR = os.path.join(VIDEO_DIR, "mosaic_previews") # 假设02脚本生成在此
-OUTPUT_OTIO = os.path.join(BASE_DIR, "timeline.otio")
+PROJECT_DIR = os.path.dirname(BASE_DIR)
+VIDEO_DIR = os.path.join(PROJECT_DIR, "data/demo-data")
+OUTPUT_DIR = os.path.join(PROJECT_DIR, "output")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+FEATURE_PATH = os.path.join(OUTPUT_DIR, "Mosaic_preview_features.npy")
+MOSAIC_PREVIEW_DIR = os.path.join(OUTPUT_DIR, "mosaic_previews")  # 由 02 脚本写入
+OUTPUT_OTIO = os.path.join(OUTPUT_DIR, "timeline.otio")
 
 # --- 模型 ID ---
 SIGLIP_ID = "google/siglip-so400m-patch14-384"

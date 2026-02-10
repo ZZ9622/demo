@@ -9,11 +9,15 @@ from datetime import timedelta
 from transformers import SiglipImageProcessor
 
 # --- 配置 ---
-BASE_DIR = "/home/SONY/s7000043396/Downloads/demo/script"
-MOSAIC_VIDEO = os.path.join(BASE_DIR, "mosaic_preview.mp4")
-FEATURE_FILE = os.path.join(BASE_DIR, "Mosaic_preview_features.npy")
-METADATA_FILE = os.path.join(BASE_DIR, "feature_metadata.json")
-MOSAIC_PREVIEW_DIR = os.path.join(os.path.dirname(BASE_DIR), "data/demo-data/mosaic_previews")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
+OUTPUT_DIR = os.path.join(PROJECT_DIR, "output")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+MOSAIC_VIDEO = os.path.join(OUTPUT_DIR, "mosaic_preview.mp4")
+FEATURE_FILE = os.path.join(OUTPUT_DIR, "Mosaic_preview_features.npy")
+METADATA_FILE = os.path.join(OUTPUT_DIR, "feature_metadata.json")
+MOSAIC_PREVIEW_DIR = os.path.join(OUTPUT_DIR, "mosaic_previews")
 os.makedirs(MOSAIC_PREVIEW_DIR, exist_ok=True)
 
 # 模型：Google SigLIP (目前 Transformer Vision Encoder 的 SOTA)
