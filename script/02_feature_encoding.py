@@ -13,6 +13,8 @@ BASE_DIR = "/home/SONY/s7000043396/Downloads/demo/script"
 MOSAIC_VIDEO = os.path.join(BASE_DIR, "mosaic_preview.mp4")
 FEATURE_FILE = os.path.join(BASE_DIR, "Mosaic_preview_features.npy")
 METADATA_FILE = os.path.join(BASE_DIR, "feature_metadata.json")
+MOSAIC_PREVIEW_DIR = os.path.join(os.path.dirname(BASE_DIR), "data/demo-data/mosaic_previews")
+os.makedirs(MOSAIC_PREVIEW_DIR, exist_ok=True)
 
 # 模型：Google SigLIP (目前 Transformer Vision Encoder 的 SOTA)
 MODEL_ID = "google/siglip-so400m-patch14-384"
@@ -40,6 +42,10 @@ def extract_features():
         cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000)
         ret, frame = cap.read()
         if not ret: break
+        
+        # 【新增：保存图片给 03 脚本使用】
+        save_path = os.path.join(MOSAIC_PREVIEW_DIR, f"mosaic_preview_{t:04d}.png")
+        cv2.imwrite(save_path, frame)
         
         # OpenCV (BGR) -> PIL (RGB)
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
