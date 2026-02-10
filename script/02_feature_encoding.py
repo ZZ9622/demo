@@ -48,9 +48,8 @@ def extract_features():
         inputs = processor(images=image, return_tensors="pt").to(device, dtype=torch.bfloat16)
         
         with torch.no_grad():
-            # 提取特征
-            image_features = model.get_image_features(**inputs)
-            # 归一化 (关键步骤)
+            outputs = model.vision_model(**inputs)
+            image_features = outputs.pooler_output
             image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
             
         features_list.append(image_features.cpu().float().numpy()) # 转回 float32 存盘

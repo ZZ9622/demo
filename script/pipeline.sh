@@ -11,9 +11,9 @@ python 01_prepare_mosaic.py
 python 02_feature_encoding.py
 
 # 3. AI 决策
-python 03_ai_director.py
+python 03_ai_decision.py
 
 # 4. 渲染
-python 04_render_final.py
+python 04_render_final_video.py
 
 echo "🎉 all processes completed!"
