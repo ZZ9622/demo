@@ -167,8 +167,9 @@ with torch.no_grad():
 
   # single-turn conversation
 #   question1 = "Describe this video in detail."
-  question1 = "这是一段篮球比赛视频，请找出视频中进球时间段。"
+#   question1 = "这是一段篮球比赛视频，请找出视频中进球时间段。"
 #   question1 = "这是一段篮球比赛视频，视频一共有多少秒"
+  question1 = "Please watch this basketball footage and provide a list of timeframes where goals are made."
   question = video_prefix + question1
 
   torch.cuda.empty_cache()
