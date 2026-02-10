@@ -1,8 +1,16 @@
-## Instruction
+## Simulated Data Source
 
-Back up data source: https://humansensinglab.github.io/basket-multiview/data.html
+Backup data source: https://humansensinglab.github.io/basket-multiview/data.html
 
 After downloading, you can do like this:
 
 ```bash
 ffmpeg -framerate 25 -i %04d.png -c:v libx264 -pix_fmt yuv420p xxx.mp4
+```
+
+## Running 
+
+```bash
+cd demo/script
+bash pipeline.sh
+```
