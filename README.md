@@ -11,6 +11,6 @@ ffmpeg -framerate 25 -i %04d.png -c:v libx264 -pix_fmt yuv420p xxx.mp4
 ## Running 
 
 ```bash
-cd demo/script
+cd script
 bash pipeline.sh
 ```
