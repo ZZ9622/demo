@@ -1,0 +1,9 @@
+file '/home/SONY/s7000043396/Downloads/demo/data/demo-data/def2_cam_00.mp4'
+inpoint 0
+outpoint 3
+file '/home/SONY/s7000043396/Downloads/demo/data/demo-data/def2_cam_46.mp4'
+inpoint 3
+outpoint 6
+file '/home/SONY/s7000043396/Downloads/demo/data/demo-data/def2_cam_73.mp4'
+inpoint 6
+outpoint 9
