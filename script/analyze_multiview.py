@@ -15,8 +15,9 @@ OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 CAMERAS_FILE = os.path.join(OUTPUT_DIR, "camerasurls.json")
 
 
-# Qwen2-VL-2B-Instruct 模型配置
-MODEL_ID = "Qwen/Qwen2-VL-2B-Instruct"
+# Qwen2-VL-7B-Instruct 模型配置
+MODEL_ID = "Qwen/Qwen2-VL-7B-Instruct"
+
 
 CAMERA_TYPES = {
     1: "baseline", 2: "sideline", 3: "sideline", 4: "baseline",
@@ -29,17 +30,18 @@ class MultiViewAnalyzer:
             self.cameras = json.load(f)
         self.temp_dir = tempfile.mkdtemp()
         
-        # 初始化Qwen2-VL-2B-Instruct模型
+        # 初始化Qwen2-VL-7B-Instruct模型
         try:
-            print("🔄 正在加载Qwen2-VL-2B-Instruct模型...")
+            print("🔄 正在加载Qwen2-VL-7B-Instruct模型...")
             self.model = Qwen2VLForConditionalGeneration.from_pretrained(
                 MODEL_ID,
                 torch_dtype="auto",
-                device_map="auto"
+                device_map="auto",
+                attn_implementation="sdpa"  # 强制使用 PyTorch 内置优化，跳过 FlashAttention 检测
             )
             self.processor = AutoProcessor.from_pretrained(MODEL_ID)
             self.qwen_available = True
-            print("✅ Qwen2-VL-2B-Instruct模型已加载")
+            print("✅ Qwen2-VL-7B-Instruct模型已加载")
         except Exception as e:
             self.model = None
             self.processor = None
@@ -50,9 +52,9 @@ class MultiViewAnalyzer:
         camera = next(c for c in self.cameras if c['id'] == camera_id)
         output_file = os.path.join(self.temp_dir, f"cam_{camera_id}_{start_time}.mp4")
         
+        # 不需要HF_TOKEN，因为这些是公开数据集
         cmd = [
             'ffmpeg', '-y', '-hide_banner', '-loglevel', 'warning',
-            '-headers', f'Authorization: Bearer {HF_TOKEN}',
             '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '2',
             '-ss', str(start_time), '-i', camera['url'],
             '-t', str(end_time - start_time), '-c', 'copy', output_file
@@ -86,29 +88,33 @@ class MultiViewAnalyzer:
         return frames
     
     def analyze_camera_with_qwen(self, camera_id, video_path):
-        """使用Qwen2-VL-2B-Instruct分析单个摄像头的视频片段"""
+        """使用Qwen2-VL-7B-Instruct分析单个摄像头的视频片段"""
         if not self.qwen_available or not video_path or not self.model:
-            return "Qwen2-VL-2B-Instruct不可用或视频文件无效"
-        
-        # 提取关键帧
-        frames = self.extract_key_frames(video_path, num_frames=1)
-        if not frames:
-            return "无法提取视频帧"
+            return "Qwen2-VL-7B-Instruct不可用或视频文件无效"
         
         camera_type = CAMERA_TYPES.get(camera_id, "unknown")
         
         try:
-            # 使用第一帧进行分析
-            image = frames[0]
+            # 提取视频帧作为图像列表
+            frames = self.extract_key_frames(video_path, num_frames=8)
+            if not frames:
+                return "无法提取视频帧"
             
-            # 按照Qwen2-VL格式构建消息
+            # 构建Qwen2-VL的视频消息格式
             messages = [
                 {
                     "role": "user",
                     "content": [
-                        {"type": "image"},
-                        {"type": "text", "text": f"分析这个{camera_type}机位的篮球比赛画面。请详细描述你看到的内容，包括：球员位置、动作、球的位置、是否有投篮或得分等关键事件。"}
-                    ]
+                        {
+                            "type": "video",
+                            "video": [frame for frame in frames],  # 传入PIL图像列表
+                            "fps": 1.0,
+                        },
+                        {
+                            "type": "text", 
+                            "text": f"分析这个{camera_type}机位的篮球比赛视频片段。请详细描述你看到的内容，包括：球员位置、动作、球的位置、是否有投篮或得分等关键事件。"
+                        }
+                    ],
                 }
             ]
             
@@ -123,7 +129,7 @@ class MultiViewAnalyzer:
             # 处理输入
             inputs = self.processor(
                 text=[text],
-                images=[image],
+                images=image_inputs,
                 videos=video_inputs,
                 padding=True,
                 return_tensors="pt",
@@ -141,7 +147,7 @@ class MultiViewAnalyzer:
                 generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
             )
             
-            analysis = output_text[0] if output_text else f"{camera_type}机位分析完成"
+            analysis = output_text[0] if output_text else f"{camera_type}机位视频分析完成"
             return analysis
                 
         except Exception as e:
@@ -156,7 +162,7 @@ class MultiViewAnalyzer:
         camera_analyses = {}
         
         # 分析每个摄像头
-        for camera_id in [1]:  # 仅测试camera1
+        for camera_id in [1]:  # 先测试camera1，避免内存问题
             video_path = self.extract_video_segment(camera_id, video_start, video_end)
             
             if video_path:

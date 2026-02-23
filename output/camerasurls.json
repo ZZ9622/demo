@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "url": "https://huggingface.co/datasets/SportsHL-Team/Sports_highlight_generation/resolve/main/apidis/camera1/camera1_full_stitched_interpolated.mp4"
+  },
+  {
+    "id": 2,
+    "url": "https://huggingface.co/datasets/SportsHL-Team/Sports_highlight_generation/resolve/main/apidis/camera2/camera2_full_stitched_interpolated.mp4"
+  },
+  {
+    "id": 3,
+    "url": "https://huggingface.co/datasets/SportsHL-Team/Sports_highlight_generation/resolve/main/apidis/camera3/camera3_full_stitched_interpolated.mp4"
+  },
+  {
+    "id": 4,
+    "url": "https://huggingface.co/datasets/SportsHL-Team/Sports_highlight_generation/resolve/main/apidis/camera4/camera4_full_stitched_interpolated.mp4"
+  },
+  {
+    "id": 5,
+    "url": "https://huggingface.co/datasets/SportsHL-Team/Sports_highlight_generation/resolve/main/apidis/camera5/camera5_full_stitched_interpolated.mp4"
+  },
+  {
+    "id": 6,
+    "url": "https://huggingface.co/datasets/SportsHL-Team/Sports_highlight_generation/resolve/main/apidis/camera6/camera6_full_stitched_interpolated.mp4"
+  },
+  {
+    "id": 7,
+    "url": "https://huggingface.co/datasets/SportsHL-Team/Sports_highlight_generation/resolve/main/apidis/camera7/camera7_full_stitched_interpolated.mp4"
+  }
+]
