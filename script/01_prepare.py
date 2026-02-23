@@ -20,7 +20,7 @@ def main():
         url = f"{DATASET_URL}/camera{i}/camera{i}_full_stitched_interpolated.mp4"
         cameras.append({"id": i, "url": url})
     
-    output_file = os.path.join(OUTPUT_DIR, "cameras.json")
+    output_file = os.path.join(OUTPUT_DIR, "camerasurls.json")
     with open(output_file, "w") as f:
         json.dump(cameras, f, indent=2)
     
