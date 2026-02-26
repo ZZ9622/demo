@@ -28,15 +28,23 @@ os.environ["OMP_NUM_THREADS"] = "20"
 hf_logging.set_verbosity_error()
 
 # ── Config ────────────────────────────────────────────────────────────────────
-VIDEO_PATH   = Path("./data/apidis/camera6_h264.mp4")
 MODEL_ID     = "Qwen/Qwen2.5-VL-3B-Instruct"
 CAMERA_TYPE  = "rightbaseline"
 
-trigger_time = 6654   # event timestamp to analyze (seconds)
-PRE_SECONDS  = 6      # seconds before trigger_time
-POST_SECONDS = 4      # seconds after trigger_time
+# VIDEO_PATH   = Path("./data/apidis/camera6_h264.mp4")
+# trigger_time = 6654   # event timestamp to analyze (seconds)
+# PRE_SECONDS  = 6      # seconds before trigger_time
+# POST_SECONDS = 4      # seconds after trigger_time
+
+VIDEO_PATH   = Path("/home/SONY/s7000043358/Sports_HL/demo/data/apidis/camera3_from_1h50m_to_end.mp4")
+CAMERA_TYPE  = "rightbaseline"   # 如果你想区分摄像机，可以改成 "camera3"，否则可以保持不变
+
+trigger_time = 93    # 触发时间（秒）
+PRE_SECONDS  = 5     # 触发时间前 5 秒
+POST_SECONDS = 5     # 触发时间后 5 秒
+
 SAMPLE_FPS   = 2      # Conservative for memory efficiency
-MAX_SIDE     = 384    # Reduced resolution for memory efficiency
+MAX_SIDE     = 96    # Reduced resolution for memory efficiency
 
 
 # ── Video extraction ──────────────────────────────────────────────────────────
@@ -106,24 +114,42 @@ def load_model():
     t0 = time.time()
     
     # Use CPU-only configuration for stability
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        MODEL_ID, 
-        torch_dtype=torch.float32,  # Always use float32 for compatibility
-        device_map=None,  # Load to CPU first
-        low_cpu_mem_usage=True,
-        trust_remote_code=True
-    ).eval()
+    # model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+    #     MODEL_ID, 
+    #     torch_dtype=torch.float32,  # Always use float32 for compatibility
+    #     device_map=None,  # Load to CPU first
+    #     low_cpu_mem_usage=True,
+    #     trust_remote_code=True
+    # ).eval()
+
+    # 如果 GPU 可用并且显存足够，直接用半精度加载到 GPU
+    if device == "cuda":
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            MODEL_ID,
+            torch_dtype=torch.float16,      # 或 bfloat16，如果你的 GPU 支持
+            device_map="cuda",              # 直接放到 GPU
+            low_cpu_mem_usage=True,
+            trust_remote_code=True
+        ).eval()
+    else:
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            MODEL_ID,
+            torch_dtype=torch.float32,      # CPU 用 float32
+            device_map=None,
+            low_cpu_mem_usage=True,
+            trust_remote_code=True
+        ).eval()
     
     # Move to device if GPU is suitable
-    if device == "cuda":
-        try:
-            model = model.to(device)
-            torch.cuda.empty_cache()
-        except RuntimeError as e:
-            print(f"  GPU loading failed: {e}")
-            print("  Falling back to CPU")
-            model = model.to("cpu")
-            device = "cpu"
+    # if device == "cuda":
+    #     try:
+    #         model = model.to(device)
+    #         torch.cuda.empty_cache()
+    #     except RuntimeError as e:
+    #         print(f"  GPU loading failed: {e}")
+    #         print("  Falling back to CPU")
+    #         model = model.to("cpu")
+    #         device = "cpu"
     
     processor = AutoProcessor.from_pretrained(
         MODEL_ID,
@@ -140,7 +166,10 @@ def load_model():
     actual_device = next(model.parameters()).device
     print(f"  Model parameters: {num_params:.1f}B")
     print(f"  Actual device: {actual_device}")
-    
+
+    # 在 load_model 函数中，返回 model 前添加一行：
+    print("  Compiling model (this may take a minute)...")
+    model = torch.compile(model)        
     return model, processor
 
 
@@ -187,9 +216,9 @@ def analyze(model, processor, clip: np.ndarray, start_sec: float, end_sec: float
             generated_ids = model.generate(
                 **inputs, 
                 max_new_tokens=600,  # Reduced for memory efficiency
-                do_sample=False, 
-                temperature=None, 
-                top_p=None,
+                do_sample=True, 
+                temperature=0.3, 
+                top_p=0.9,
                 pad_token_id=processor.tokenizer.pad_token_id,
                 use_cache=False  # Disable cache to save memory
             )
@@ -220,6 +249,8 @@ def analyze(model, processor, clip: np.ndarray, start_sec: float, end_sec: float
 def main():
     # Set memory optimization environment variables
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
+    t0 = time.time()  # 记录开始时间    
     
     print("=" * 60)
     print("  Basketball Video Analysis - Ubuntu Version")
@@ -275,6 +306,9 @@ def main():
     
     print(f"✓ Analysis complete! Results saved to: {out_file}")
     print(f"  File size: {out_file.stat().st_size} bytes")
+
+    total_time = time.time() - t0
+    print(f"\n总耗时: {total_time:.1f} 秒")    
 
 
 if __name__ == "__main__":
