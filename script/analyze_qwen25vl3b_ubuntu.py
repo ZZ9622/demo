@@ -21,6 +21,8 @@ import torch
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 from transformers import logging as hf_logging
 
+import argparse
+
 warnings.filterwarnings("ignore")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
@@ -279,8 +281,27 @@ def analyze(model, processor, clip: np.ndarray, start_sec: float, end_sec: float
         raise
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--video", type=str, default=str(VIDEO_PATH),
+                        help="要分析的视频路径")
+    parser.add_argument("--trigger", type=float, default=trigger_time,
+                        help="触发时间（秒）")
+    parser.add_argument("--pre", type=float, default=PRE_SECONDS,
+                        help="触发前窗口（秒）")
+    parser.add_argument("--post", type=float, default=POST_SECONDS,
+                        help="触发后窗口（秒）")
+    return parser.parse_args()
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
+    args = parse_args()
+
+    # 用命令行参数覆盖默认配置（如果没传就用文件里原来的默认值）
+    global VIDEO_PATH, trigger_time, PRE_SECONDS, POST_SECONDS
+    VIDEO_PATH   = Path(args.video)
+    trigger_time = args.trigger
+    PRE_SECONDS  = args.pre
+    POST_SECONDS = args.post
     # Set memory optimization environment variables
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
@@ -298,10 +319,12 @@ def main():
         print(f"ERROR: video not found: {VIDEO_PATH}")
         sys.exit(1)
 
-    start_sec = float(trigger_time - PRE_SECONDS)
-    end_sec   = float(trigger_time + POST_SECONDS)
+    # 在整体 pipeline 中，视频已经在外部（pipeline.py）按 trigger_time 前后裁剪成短片段。
+    # 这里不再根据 trigger_time 做二次裁剪，而是直接分析整段传入的视频。
+    start_sec = 0.0
+    end_sec   = 999999.0
 
-    print("\n[1/3] Extracting video clip...")
+    print("\n[1/3] Extracting video clip (full input video, no extra cut)...")
     clip = extract_clip(VIDEO_PATH, start_sec, end_sec)
     if clip.shape[0] == 0:
         print("ERROR: no frames extracted. Check trigger_time is within video duration.")
