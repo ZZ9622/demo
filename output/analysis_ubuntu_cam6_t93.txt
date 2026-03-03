@@ -1,0 +1,16 @@
+video      : /home/SONY/s7000043358/Sports_HL/demo/data/apidis/camera6_from_1h50m_to_end.mp4
+trigger    : 93s
+model      : Qwen/Qwen2.5-VL-3B-Instruct
+window     : 89.0s – 97.0s
+camera     : rightbaseline
+sample_fps : 4
+frames     : 34
+
+============================================================
+Result:
+============================================================
+[Before] [0.0, T1]: The player is positioned near the three-point line, holding the basketball. The ball is in the player's possession.
+
+[During] [T1, T2]: The player jumps slightly, extending their arm to shoot the ball. The ball leaves the player's hand as it arcs through the air towards the hoop.
+
+[After] [T2, 8.0]: The ball enters the hoop, indicating a successful shot. The player's body is slightly bent forward, following through with the shot.

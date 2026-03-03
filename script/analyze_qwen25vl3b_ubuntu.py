@@ -36,14 +36,14 @@ CAMERA_TYPE  = "rightbaseline"
 # PRE_SECONDS  = 6      # seconds before trigger_time
 # POST_SECONDS = 4      # seconds after trigger_time
 
-VIDEO_PATH   = Path("/home/SONY/s7000043358/Sports_HL/demo/data/apidis/camera3_from_1h50m_to_end.mp4")
+VIDEO_PATH   = Path("/home/SONY/s7000043358/Sports_HL/demo/data/apidis/camera6_from_1h50m_to_end.mp4")
 CAMERA_TYPE  = "rightbaseline"   # 如果你想区分摄像机，可以改成 "camera3"，否则可以保持不变
 
 trigger_time = 93    # 触发时间（秒）
-PRE_SECONDS  = 5     # 触发时间前 5 秒
-POST_SECONDS = 5     # 触发时间后 5 秒
+PRE_SECONDS  = 4     # 触发时间前 5 秒
+POST_SECONDS = 4     # 触发时间后 5 秒
 
-SAMPLE_FPS   = 2      # Conservative for memory efficiency
+SAMPLE_FPS   = 4      # Conservative for memory efficiency
 MAX_SIDE     = 96    # Reduced resolution for memory efficiency
 
 
@@ -178,16 +178,50 @@ def analyze(model, processor, clip: np.ndarray, start_sec: float, end_sec: float
     pre  = trigger_time - start_sec
     post = end_sec - trigger_time
 
+    # prompt = (
+    #     f"This is a {end_sec - start_sec:.0f}-second basketball video clip "
+    #     f"from the {CAMERA_TYPE} camera ({start_sec:.1f}s – {end_sec:.1f}s).\n"
+    #     f"The system-marked event trigger_time is {trigger_time}s, "
+    #     f"which is {pre:.0f}s into this clip (pre={pre:.0f}s / post={post:.0f}s).\n\n"
+    #     "Describe what you actually see in the video using this structure:\n"
+    #     "[Before] What is happening before trigger_time? Where is the ball? What are the players doing?\n"
+    #     "[At] What is the key action at/around trigger_time? (shot attempt, pass, foul, etc.) What is the ball trajectory?\n"
+    #     "[After] What is the outcome? (scored / missed / out of bounds / foul) How does possession change?\n\n"
+    #     "Only describe what is visible in the video. Do not guess or infer."
+    # )
+
+    # prompt = (
+    #     f"This is a {end_sec - start_sec:.0f}-second basketball video clip "
+    #     f"from the {CAMERA_TYPE} camera ({start_sec:.1f}s – {end_sec:.1f}s).\n\n"
+    #     "Watch the entire clip and, based only on the visual content, decide what you consider to be the main basketball event "
+    #     "(such as a shot attempt, foul, turnover, steal, rebound, out of bounds, etc.).\n"
+    #     "Then describe the video in three parts using this structure:\n"
+    #     "[Before] What is happening earlier in the clip before the main event? Where is the ball? What are the players doing and how is the play developing?\n"
+    #     "[During] What is the key action around the main event? Who is involved, what exactly happens, and what is the ball trajectory?\n"
+    #     "[After] What is the outcome of that main event? (scored / missed / foul / turnover / out of bounds, etc.) How does possession or game state change afterwards?\n\n"
+    #     "Only describe what is visible in the video. Do not guess information that cannot be seen."
+    # )
+
+    # 这里的 start_sec 和 end_sec 是你视频片段的绝对时间（例如 89 和 97）
+    # duration 就是 8.0 秒
+    
+
+    duration = end_sec - start_sec
     prompt = (
-        f"This is a {end_sec - start_sec:.0f}-second basketball video clip "
-        f"from the {CAMERA_TYPE} camera ({start_sec:.1f}s – {end_sec:.1f}s).\n"
-        f"The system-marked event trigger_time is {trigger_time}s, "
-        f"which is {pre:.0f}s into this clip (pre={pre:.0f}s / post={post:.0f}s).\n\n"
-        "Describe what you actually see in the video using this structure:\n"
-        "[Before] What is happening before trigger_time? Where is the ball? What are the players doing?\n"
-        "[At] What is the key action at/around trigger_time? (shot attempt, pass, foul, etc.) What is the ball trajectory?\n"
-        "[After] What is the outcome? (scored / missed / out of bounds / foul) How does possession change?\n\n"
-        "Only describe what is visible in the video. Do not guess or infer."
+        f"This video clip is {duration:.1f} seconds long. Focus ONLY on the physical state of the ball and the primary player.\n\n"
+        "Describe the highlight in three consecutive stages using simple, objective visual facts. "
+        "Strictly follow the format below (no other text):\n\n"
+        
+        f"[Before] [0.0, T1]: Focus on player POSITION and ball POSSESSION. "
+        "Where is the player on the court? (e.g., 'Player with ball at the three-point line'). Is the ball in hands or being dribbled?\n"
+        
+        f"[During] [T1, T2]: Focus on BALL MOVEMENT and SHOOTING ACTION. "
+        "Does the player jump? Does the ball leave the player's hands? Describe the path of the ball (e.g., 'Player jumps and releases the ball toward the hoop').\n"
+        
+        f"[After] [T2, {duration:.1f}]: Focus on BALL LOCATION and RESULT. "
+        "Where is the ball now? (e.g., 'Ball enters the net', 'Ball bounces off the rim'). What is the player's physical posture after the shot?\n\n"
+        
+        "CRITICAL: Do not guess tactical moves (like crossovers). Only describe the physical trajectory and location of the ball and the player's body."
     )
 
     messages = [{"role": "user", "content": [
@@ -216,7 +250,7 @@ def analyze(model, processor, clip: np.ndarray, start_sec: float, end_sec: float
             generated_ids = model.generate(
                 **inputs, 
                 max_new_tokens=600,  # Reduced for memory efficiency
-                do_sample=True, 
+                do_sample=False, 
                 temperature=0.3, 
                 top_p=0.9,
                 pad_token_id=processor.tokenizer.pad_token_id,
