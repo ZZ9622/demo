@@ -20,6 +20,7 @@ import numpy as np
 import torch
 from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 from transformers import logging as hf_logging
+hf_logging.disable_progress_bar()
 
 import argparse
 
@@ -38,7 +39,7 @@ CAMERA_TYPE  = "rightbaseline"
 # PRE_SECONDS  = 6      # seconds before trigger_time
 # POST_SECONDS = 4      # seconds after trigger_time
 
-VIDEO_PATH   = Path("/home/SONY/s7000043358/Sports_HL/demo/data/apidis/camera6_from_1h50m_to_end.mp4")
+VIDEO_PATH   = Path("/home/SONY/s7000043358/Sports_HL/demo/data/apidis/camera6_from_1h50m_to_end_89_97.mp4")
 CAMERA_TYPE  = "rightbaseline"   # 如果你想区分摄像机，可以改成 "camera3"，否则可以保持不变
 
 trigger_time = 93    # 触发时间（秒）
@@ -46,7 +47,7 @@ PRE_SECONDS  = 4     # 触发时间前 5 秒
 POST_SECONDS = 4     # 触发时间后 5 秒
 
 SAMPLE_FPS   = 4      # Conservative for memory efficiency
-MAX_SIDE     = 96    # Reduced resolution for memory efficiency
+MAX_SIDE     = 192    # Reduced resolution for memory efficiency
 
 
 # ── Video extraction ──────────────────────────────────────────────────────────
@@ -209,22 +210,25 @@ def analyze(model, processor, clip: np.ndarray, start_sec: float, end_sec: float
     
 
     duration = end_sec - start_sec
-    prompt = (
-        f"This video clip is {duration:.1f} seconds long. Focus ONLY on the physical state of the ball and the primary player.\n\n"
-        "Describe the highlight in three consecutive stages using simple, objective visual facts. "
-        "Strictly follow the format below (no other text):\n\n"
-        
-        f"[Before] [0.0, T1]: Focus on player POSITION and ball POSSESSION. "
-        "Where is the player on the court? (e.g., 'Player with ball at the three-point line'). Is the ball in hands or being dribbled?\n"
-        
-        f"[During] [T1, T2]: Focus on BALL MOVEMENT and SHOOTING ACTION. "
-        "Does the player jump? Does the ball leave the player's hands? Describe the path of the ball (e.g., 'Player jumps and releases the ball toward the hoop').\n"
-        
-        f"[After] [T2, {duration:.1f}]: Focus on BALL LOCATION and RESULT. "
-        "Where is the ball now? (e.g., 'Ball enters the net', 'Ball bounces off the rim'). What is the player's physical posture after the shot?\n\n"
-        
-        "CRITICAL: Do not guess tactical moves (like crossovers). Only describe the physical trajectory and location of the ball and the player's body."
-    )
+    prompt = """
+    You are a video observation system.
+
+    任务：
+    对视频中的确实进球的投篮，用自然语言描述：
+
+    1. 投篮的准备的动作
+    2. 出手瞬间的动作细节
+    3. 投篮结果（命中/未中/被盖）
+    4. 出手瞬间的投篮的人和防守的人的人员空间站位
+
+    要求：
+    不要补充视频里无法直接观测到的内容
+
+    输出形式：
+    [Before]:投篮的准备动作\n
+    [During]:出手瞬间的动作细节,出手瞬间的人员空间站位\n
+    [After]:投篮结果\n
+    """
 
     messages = [{"role": "user", "content": [
         {"type": "video"},

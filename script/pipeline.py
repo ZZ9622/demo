@@ -91,8 +91,35 @@ def load_during_text(analysis_path: Path) -> str:
         raise ValueError(f"未在分析文件中找到 [During]: {analysis_path}")
     return during
 
+# def load_during_text(analysis_path: Path) -> str:
+#     """
+#     从分析文件中读取 Result 段落的正文（不再要求 [During] 前缀）。
+#     """
+#     in_result = False
+#     lines: list[str] = []
 
-def extract_tfvtg_features(video_path: str, fps: float = 3.0) -> Tuple[np.ndarray, float]:
+#     with analysis_path.open("r", encoding="utf-8") as f:
+#         for raw in f:
+#             line = raw.rstrip("\n")
+#             # 找到 “Result:” 标题下面的正文
+#             if not in_result:
+#                 if line.strip() == "Result:":
+#                     in_result = True
+#                 continue
+
+#             # Result 段落后如果有新的分隔线或空行，可以在这里判断结束
+#             if line.strip().startswith("====") and lines:
+#                 break
+
+#             if line.strip():
+#                 lines.append(line.strip())
+
+#     text = " ".join(lines).strip()
+#     if not text:
+#         raise ValueError(f"未在分析文件中找到 Result 正文: {analysis_path}")
+#     return text
+
+def extract_tfvtg_features(video_path: str, fps: float = 4.0) -> Tuple[np.ndarray, float]:
     feats = get_visual_features(
         video_path=video_path,
         fps=fps,
@@ -105,7 +132,36 @@ def extract_tfvtg_features(video_path: str, fps: float = 3.0) -> Tuple[np.ndarra
     duration_sec = feats.shape[0] / fps  # 近似
     return feats, duration_sec
 
+# ========================== visualize scores start ==========================
+import matplotlib.pyplot as plt
+import numpy as np
 
+def visualize_tfvtg_scores(scores, duration_sec, out_path: str):
+    """
+    scores: torch.Tensor, 形状 [1, T]
+    duration_sec: 这段视频的总时长（秒），就是 extract_tfvtg_features 返回的那个 dur
+    """
+    # 1) 转成 numpy
+    s = scores[0].detach().cpu().numpy()   # 形状 [T]
+    T = len(s)
+
+    # 2) 为每个 time step 生成对应的时间戳（相对于 seg_video 的 0 秒）
+    times = np.linspace(0, duration_sec, T, endpoint=False)
+
+    # 3) 画图
+    plt.figure(figsize=(10, 4))
+    plt.plot(times, s)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Similarity")
+    # plt.axvline(start, color="red", linestyle="--", label="start")
+    # plt.axvline(end, color="green", linestyle="--", label="end")
+    plt.legend()
+    plt.title("TFVTG text-video similarity over time")
+    plt.tight_layout()
+    plt.savefig(out_path)
+    plt.close()
+# ========================== visualize scores end ==========================
+    
 def score_and_localize_during(
     feats: np.ndarray,
     duration_sec: float,
@@ -120,6 +176,12 @@ def score_and_localize_during(
     """
     scores = calc_scores(feats, [during_text])
     raw_score_max = float(scores.detach().cpu().numpy()[0].max())
+    # ========================== visualize scores start ==========================
+    from pathlib import Path
+    out_img = OUTPUT_DIR / "tfvtg_similarity.png"
+    visualize_tfvtg_scores(scores, duration_sec, str(out_img))
+    print(f"相似度曲线已保存: {out_img}")
+    # ========================== visualize scores end ==========================
 
     T = feats.shape[0]
     stride = min(base_stride, max(3, T // 2))
@@ -169,7 +231,7 @@ def main():
     video_path = seg_video
 
     print(f"-> single_video: {video_path}")
-    feats, dur = extract_tfvtg_features(video_path, fps=3.0)
+    feats, dur = extract_tfvtg_features(video_path, fps=4.0)
     raw_score, start, end, local_conf = score_and_localize_during(feats, dur, during_text)
 
     print("\nTFVTG 结果：")
@@ -195,6 +257,6 @@ if __name__ == "__main__":
     # --- User config: 同一个视频 + 触发时间 + 前后范围 ---
     USER_VIDEO   = str(DATA_DIR / "camera6_from_1h50m_to_end.mp4")  # 这里换成你真正想用的单个视频
     TRIGGER_TIME = 93.0   # 触发时间（秒）
-    PRE_SECONDS  = 4.0    # 触发前窗口
-    POST_SECONDS = 4.0    # 触发后窗口
+    PRE_SECONDS  = 8.0    # 触发前窗口
+    POST_SECONDS = 8.0    # 触发后窗口
     main()
