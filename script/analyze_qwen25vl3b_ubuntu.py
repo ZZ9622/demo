@@ -211,22 +211,17 @@ def analyze(model, processor, clip: np.ndarray, start_sec: float, end_sec: float
 
     duration = end_sec - start_sec
     prompt = """
-    You are a video observation system.
+    You are a video grounding assistant.
 
     任务：
-    对视频中的确实进球的投篮，用自然语言描述：
-
-    1. 投篮的准备的动作
-    2. 出手瞬间的动作细节
-    3. 投篮结果（命中/未中/被盖）
-    4. 出手瞬间的投篮的人和防守的人的人员空间站位
+    对视频中的确实进球的投篮，用自然语言描述画面信息。
 
     要求：
-    不要补充视频里无法直接观测到的内容
+    只描述动作，不要添加无法直接识别的细节
 
     输出形式：
     [Before]:投篮的准备动作\n
-    [During]:出手瞬间的动作细节,出手瞬间的人员空间站位\n
+    [During]:出手瞬间的动作和人员空间站位\n(扣篮/投篮，在三分线内/上/外)
     [After]:投篮结果\n
     """
 

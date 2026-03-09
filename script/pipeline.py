@@ -201,20 +201,26 @@ def score_and_localize_during(
     return raw_score_max, float(seg["start"]), float(seg["end"]), float(seg["confidence"])
 
 
-def main():
+def run_grounding(video_path: str, trigger_time: float, pre_seconds: float, post_seconds: float):
+    """
+    执行完整的 Grounding 流程
+    """
     # 0) 先在 lavis 环境中，把原始长视频裁成以 trigger 为中心的短片段
-    if not os.path.exists(USER_VIDEO):
-        raise FileNotFoundError(f"视频不存在: {USER_VIDEO}")
+    if not os.path.exists(video_path):
+        raise FileNotFoundError(f"视频不存在: {video_path}")
 
-    seg_start = TRIGGER_TIME - PRE_SECONDS
-    seg_end   = TRIGGER_TIME + POST_SECONDS
+    seg_start = trigger_time - pre_seconds
+    seg_end   = trigger_time + post_seconds
+    # 确保开始时间不为负数
+    seg_start = max(0, seg_start)
+    
     seg_video = str(OUTPUT_DIR / "tmp_trigger_segment.mp4")
 
-    cut_video_segment(USER_VIDEO, seg_video, seg_start, seg_end)
+    print(f"\n=== [0] 裁剪原始视频: {seg_start}s -> {seg_end}s ===")
+    cut_video_segment(video_path, seg_video, seg_start, seg_end)
 
     # 1) Qwen 分析（qwen env）—— 对同一个「已裁剪」视频做文字分析
-    #    Qwen 脚本内部不再做基于 trigger 的二次裁剪
-    run_qwen_analysis(seg_video, TRIGGER_TIME, PRE_SECONDS, POST_SECONDS)
+    run_qwen_analysis(seg_video, trigger_time, pre_seconds, post_seconds)
 
     # 2) 找最新 analysis 文件并读 During
     analysis_path = find_latest_analysis_file()
@@ -227,26 +233,27 @@ def main():
     # 3) TFVTG 对同一个「已裁剪」视频做 During 匹配（lavis env）
     print("\n=== [C] TFVTG During 匹配（conda env: lavis）===")
 
-    # 复用前面裁剪好的 seg_video，确保 TFVTG 匹配的也是 trigger 前后的视频片段
-    video_path = seg_video
+    # 复用前面裁剪好的 seg_video
+    input_video = seg_video
 
-    print(f"-> single_video: {video_path}")
-    feats, dur = extract_tfvtg_features(video_path, fps=4.0)
+    print(f"-> processing: {input_video}")
+    feats, dur = extract_tfvtg_features(input_video, fps=4.0)
     raw_score, start, end, local_conf = score_and_localize_during(feats, dur, during_text)
 
     print("\nTFVTG 结果：")
     print(f"raw={raw_score:.4f} | local={local_conf:.4f} | {start:.2f}s ~ {end:.2f}s")
 
     if end <= start:
-        raise RuntimeError(f"时间段异常：start={start}, end={end}")
+        # 如果定位失败，默认输出整个裁剪后的片段
+        print("警告：定位时间段异常，输出原始裁剪片段。")
+        start, end = 0, dur
 
     # 4) 剪辑输出（lavis env）
     out_mp4 = OUTPUT_DIR / "pipeline_during_best.mp4"
     print("\n=== [D] 剪辑输出（单视频）===")
-    print(f"video={video_path} raw={raw_score:.4f}")
     print(f"output={out_mp4}")
 
-    clip = VideoFileClip(video_path).subclipped(start, end)
+    clip = VideoFileClip(input_video).subclipped(start, end)
     final = concatenate_videoclips([clip], method="compose")
     final.write_videofile(str(out_mp4), codec="libx264", audio_codec="aac")
     clip.close()
@@ -254,9 +261,16 @@ def main():
 
 
 if __name__ == "__main__":
-    # --- User config: 同一个视频 + 触发时间 + 前后范围 ---
-    USER_VIDEO   = str(DATA_DIR / "camera6_from_1h50m_to_end.mp4")  # 这里换成你真正想用的单个视频
-    TRIGGER_TIME = 93.0   # 触发时间（秒）
-    PRE_SECONDS  = 8.0    # 触发前窗口
-    POST_SECONDS = 8.0    # 触发后窗口
-    main()
+    # 在这里定义你的参数
+    video_to_process = str(DATA_DIR / "camera6_from_1h50m_to_end.mp4")
+    t_time = 93.0
+    pre = 8.0
+    post = 8.0
+
+    # 传入函数
+    run_grounding(
+        video_path=video_to_process,
+        trigger_time=t_time,
+        pre_seconds=pre,
+        post_seconds=post
+    )
