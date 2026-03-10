@@ -1,0 +1,587 @@
+[
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 56.95,
+        "start_time": 54.0,
+        "duration": 2.95,
+        "quarter": "1",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 78.15,
+        "start_time": 76.0,
+        "duration": 2.15,
+        "quarter": "1",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 94.35,
+        "start_time": 91.0,
+        "duration": 3.35,
+        "quarter": "1",
+        "team": "Team A"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 2,
+        "triggertime": 153.0,
+        "start_time": 116.0,
+        "duration": 37.0,
+        "quarter": "1",
+        "team": "Team B,Team A,Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 186.9,
+        "start_time": 183.2,
+        "duration": 3.7,
+        "quarter": "1",
+        "team": "Team B"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 2,
+        "triggertime": 236.3,
+        "start_time": 201.85,
+        "duration": 34.45,
+        "quarter": "1",
+        "team": "Team A,Team B,Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 260.6,
+        "start_time": 257.0,
+        "duration": 3.6,
+        "quarter": "1",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 293.95,
+        "start_time": 290.4,
+        "duration": 3.55,
+        "quarter": "1",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 313.9,
+        "start_time": 309.8,
+        "duration": 4.1,
+        "quarter": "1",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 332.8,
+        "start_time": 329.35,
+        "duration": 3.45,
+        "quarter": "1",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 387.3,
+        "start_time": 384.0,
+        "duration": 3.3,
+        "quarter": "1",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 405.1,
+        "start_time": 402.0,
+        "duration": 3.1,
+        "quarter": "1",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 519.95,
+        "start_time": 516.1,
+        "duration": 3.85,
+        "quarter": "1",
+        "team": "Team B"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 2,
+        "triggertime": 640.6,
+        "start_time": 605.95,
+        "duration": 34.65,
+        "quarter": "1",
+        "team": "Team A,Team B,Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 683.25,
+        "start_time": 679.65,
+        "duration": 3.6,
+        "quarter": "1",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 770.5,
+        "start_time": 768.3,
+        "duration": 2.2,
+        "quarter": "1",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 848.25,
+        "start_time": 844.3,
+        "duration": 3.95,
+        "quarter": "1",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 977.55,
+        "start_time": 975.4,
+        "duration": 2.15,
+        "quarter": "2",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 1113.7,
+        "start_time": 1111.35,
+        "duration": 2.35,
+        "quarter": "2",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 1132.7,
+        "start_time": 1128.0,
+        "duration": 4.7,
+        "quarter": "2",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 1298.15,
+        "start_time": 1295.0,
+        "duration": 3.15,
+        "quarter": "2",
+        "team": "Team A"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 2,
+        "triggertime": 1355.65,
+        "start_time": 1317.8,
+        "duration": 37.85,
+        "quarter": "2",
+        "team": "Team B,Team A,Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 1470.65,
+        "start_time": 1468.0,
+        "duration": 2.65,
+        "quarter": "2",
+        "team": "Team B"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 2,
+        "triggertime": 1523.85,
+        "start_time": 1486.0,
+        "duration": 37.85,
+        "quarter": "2",
+        "team": "Team A,Team B,Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 1544.65,
+        "start_time": 1541.7,
+        "duration": 2.95,
+        "quarter": "2",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 1565.05,
+        "start_time": 1561.35,
+        "duration": 3.7,
+        "quarter": "2",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 1573.8,
+        "start_time": 1569.45,
+        "duration": 4.35,
+        "quarter": "2",
+        "team": "Team B"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 1,
+        "triggertime": 1748.5,
+        "start_time": 1624.0,
+        "duration": 124.5,
+        "quarter": "2",
+        "team": "Team B,Team A,Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 1791.25,
+        "start_time": 1787.0,
+        "duration": 4.25,
+        "quarter": "2",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 1876.05,
+        "start_time": 1873.15,
+        "duration": 2.9,
+        "quarter": "2",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 1900.3,
+        "start_time": 1897.7,
+        "duration": 2.6,
+        "quarter": "2",
+        "team": "Team B"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 2,
+        "triggertime": 1957.25,
+        "start_time": 1923.65,
+        "duration": 33.6,
+        "quarter": "2",
+        "team": "Team B,Team A,Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 3082.05,
+        "start_time": 3078.3,
+        "duration": 3.75,
+        "quarter": "3",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 3103.1,
+        "start_time": 3100.05,
+        "duration": 3.05,
+        "quarter": "3",
+        "team": "Team A"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 1,
+        "triggertime": 3200.7,
+        "start_time": 3142.85,
+        "duration": 57.85,
+        "quarter": "3",
+        "team": "Team A,Team B,Team A"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 2,
+        "triggertime": 3301.2,
+        "start_time": 3261.55,
+        "duration": 39.65,
+        "quarter": "3",
+        "team": "Team B,Team A,Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 3317.75,
+        "start_time": 3313.85,
+        "duration": 3.9,
+        "quarter": "3",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 3330.75,
+        "start_time": 3326.95,
+        "duration": 3.8,
+        "quarter": "3",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 3394.95,
+        "start_time": 3391.45,
+        "duration": 3.5,
+        "quarter": "3",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 3551.9,
+        "start_time": 3548.0,
+        "duration": 3.9,
+        "quarter": "3",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 3570.5,
+        "start_time": 3567.7,
+        "duration": 2.8,
+        "quarter": "3",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 3610.15,
+        "start_time": 3606.0,
+        "duration": 4.15,
+        "quarter": "3",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 3753.35,
+        "start_time": 3751.05,
+        "duration": 2.3,
+        "quarter": "3",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 3878.2,
+        "start_time": 3875.0,
+        "duration": 3.2,
+        "quarter": "3",
+        "team": "Team A "
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 3924.7,
+        "start_time": 3921.0,
+        "duration": 3.7,
+        "quarter": "3",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 3967.9,
+        "start_time": 3964.1,
+        "duration": 3.8,
+        "quarter": "3",
+        "team": "Team B,Team A"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 2,
+        "triggertime": 4019.9,
+        "start_time": 3972.9,
+        "duration": 47.0,
+        "quarter": "3",
+        "team": "Team A,Team A,Team B,Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 4064.3,
+        "start_time": 4060.8,
+        "duration": 3.5,
+        "quarter": "3",
+        "team": "Team B"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 1,
+        "triggertime": 4224.85,
+        "start_time": 4190.9,
+        "duration": 33.95,
+        "quarter": "4",
+        "team": "Team A,Team B,Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 4306.9,
+        "start_time": 4303.35,
+        "duration": 3.55,
+        "quarter": "4",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 4346.55,
+        "start_time": 4343.05,
+        "duration": 3.5,
+        "quarter": "4",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 4400.7,
+        "start_time": 4397.3,
+        "duration": 3.4,
+        "quarter": "4",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 4632.35,
+        "start_time": 4628.25,
+        "duration": 4.1,
+        "quarter": "4",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 4661.15,
+        "start_time": 4657.25,
+        "duration": 3.9,
+        "quarter": "4",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 4770.05,
+        "start_time": 4767.1,
+        "duration": 2.95,
+        "quarter": "4",
+        "team": "Team B"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 4789.0,
+        "start_time": 4785.6,
+        "duration": 3.4,
+        "quarter": "4",
+        "team": "Team A"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 1,
+        "triggertime": 4860.65,
+        "start_time": 4825.0,
+        "duration": 35.65,
+        "quarter": "4",
+        "team": "Team A,Team B,Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 4908.3,
+        "start_time": 4904.55,
+        "duration": 3.75,
+        "quarter": "4",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 3,
+        "triggertime": 4939.9,
+        "start_time": 4936.75,
+        "duration": 3.15,
+        "quarter": "4",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 4962.35,
+        "start_time": 4959.35,
+        "duration": 3.0,
+        "quarter": "4",
+        "team": "Team B"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 2,
+        "triggertime": 5231.2,
+        "start_time": 5184.15,
+        "duration": 47.05,
+        "quarter": "4",
+        "team": "Team B,Team B,Team A,Team B"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 2,
+        "triggertime": 5401.4,
+        "start_time": 5375.0,
+        "duration": 26.4,
+        "quarter": "4",
+        "team": "Team B,Team A,Team B"
+    },
+    {
+        "type": "Free_Throw",
+        "score": 1,
+        "triggertime": 5548.3,
+        "start_time": 5420.1,
+        "duration": 128.2,
+        "quarter": "4",
+        "team": "Team A,Team B,Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 5560.3,
+        "start_time": 5557.15,
+        "duration": 3.15,
+        "quarter": "4",
+        "team": "Team A"
+    },
+    {
+        "type": "Field_Goal",
+        "score": 2,
+        "triggertime": 5568.65,
+        "start_time": 5566.0,
+        "duration": 2.65,
+        "quarter": "4",
+        "team": "Team B"
+    }
+]

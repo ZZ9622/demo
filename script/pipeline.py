@@ -33,39 +33,105 @@ sys.path.append(str(PROJECT_ROOT))
 from TFVTG.feature_extraction import get_visual_features
 from TFVTG.vlm_localizer import localize, calc_scores
 
-# --- moviepy (in lavis env) ---
-from moviepy import VideoFileClip, concatenate_videoclips
+# # --- moviepy (in lavis env) ---
+# from moviepy import VideoFileClip, concatenate_videoclips
 
-def cut_video_segment(src_path: str, out_path: str, start_sec: float, end_sec: float):
-    clip = VideoFileClip(src_path).subclipped(start_sec, end_sec)
-    # 这里只是生成一个中间片段给 TFVTG 用，可以用较小码率降低体积
-    clip.write_videofile(out_path, codec="libx264", audio_codec="aac")
-    clip.close()
+# def cut_video_segment(src_path: str, out_path: str, start_sec: float, end_sec: float):
+#     clip = VideoFileClip(src_path).subclipped(start_sec, end_sec)
+#     # 这里只是生成一个中间片段给 TFVTG 用，可以用较小码率降低体积
+#     clip.write_videofile(out_path, codec="libx264", audio_codec="aac")
+#     clip.close()
+
+
+def cut_video_segment_ffmpeg(src_path: str, out_path: str, start_sec: float, end_sec: float):
+    out_path = str(out_path)
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+
+    if end_sec <= start_sec:
+        raise ValueError(f"invalid range: start={start_sec}, end={end_sec}")
+
+    duration = end_sec - start_sec
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-ss", f"{start_sec:.3f}",
+        "-t", f"{duration:.3f}",
+        "-i", src_path,
+        "-c:v", "libx264",
+        "-preset", "superfast",
+        "-crf", "18",
+        "-pix_fmt", "yuv420p",
+        # "-c:a", "aac",
+        # "-b:a", "128k",
+        "-an",
+        "-movflags", "+faststart",
+        "-reset_timestamps", "1",
+        # "-avoid_negative_ts", "make_zero", # 确保时间戳严格从0开始    
+        out_path,
+    ]
+    print(" ".join(cmd))
+    # subprocess.run(cmd, check=True)  # 先别吞输出，方便看到 ffmpeg 警告/报错
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+# def run_qwen_analysis(video_path: str, trigger_time: float, pre_sec: float, post_sec: float):
+#     """
+#     用 qwen 环境执行 analyze_qwen25vl3b_ubuntu.py。
+#     该脚本会自己把结果写到 demo/output/analysis_ubuntu_cam6_t{trigger}.txt
+#     """
+#     script = DEMO_ROOT / "script" / "analyze_qwen25vl3b_ubuntu.py"
+#     if not script.exists():
+#         raise FileNotFoundError(f"找不到 Qwen 脚本: {script}")
+
+#     my_env = os.environ.copy()
+#     for var in ["LD_LIBRARY_PATH", "PYTHONPATH", "PYTHONHOME"]:
+#         if var in my_env:
+#             del my_env[var]
+
+#     cmd = [
+#         "conda", "run", "-n", "hf", "python", "demo/script/analyze_qwen25vl3b_ubuntu.py",
+#         "--video", video_path,
+#         "--trigger", str(trigger_time),
+#         "--pre", str(pre_sec),
+#         "--post", str(post_sec),
+#     ]
+#     print("\n=== [A] 运行 Qwen 分析（conda env: qwen）===")
+#     print(" ".join(cmd))
+#     subprocess.run(cmd, check=True, env=my_env)
+
+
+import requests
+import json
 
 def run_qwen_analysis(video_path: str, trigger_time: float, pre_sec: float, post_sec: float):
     """
-    用 qwen 环境执行 analyze_qwen25vl3b_ubuntu.py。
-    该脚本会自己把结果写到 demo/output/analysis_ubuntu_cam6_t{trigger}.txt
+    不再启动子进程，而是向常驻的 Qwen 服务发送 HTTP 请求。
     """
-    script = DEMO_ROOT / "script" / "analyze_qwen25vl3b_ubuntu.py"
-    if not script.exists():
-        raise FileNotFoundError(f"找不到 Qwen 脚本: {script}")
-
-    my_env = os.environ.copy()
-    for var in ["LD_LIBRARY_PATH", "PYTHONPATH", "PYTHONHOME"]:
-        if var in my_env:
-            del my_env[var]
-
-    cmd = [
-        "conda", "run", "-n", "hf", "python", "demo/script/analyze_qwen25vl3b_ubuntu.py",
-        "--video", video_path,
-        "--trigger", str(trigger_time),
-        "--pre", str(pre_sec),
-        "--post", str(post_sec),
-    ]
-    print("\n=== [A] 运行 Qwen 分析（conda env: qwen）===")
-    print(" ".join(cmd))
-    subprocess.run(cmd, check=True, env=my_env)
+    print("\n=== [A] 向 Qwen Server 请求分析 ===")
+    url = "http://127.0.0.1:8000/analyze"
+    payload = {
+        "video_path": str(video_path),
+        "start_sec": 0.0,
+        "end_sec": pre_sec + post_sec # 这里的视频已经是被裁切好的临时文件了
+    }
+    
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        
+        if data["status"] == "success":
+            result_text = data["result"]
+            print(f"✅ 分析成功 (耗时 {data['time_cost']:.2f}s):\n{result_text}")
+            
+            # 把结果写回原来的 txt 文件，保持后续逻辑兼容
+            out_file = OUTPUT_DIR / f"analysis_ubuntu_cam6_t{trigger_time}.txt"
+            with open(out_file, "w", encoding="utf-8") as f:
+                f.write("[During] " + result_text + "\n")
+        else:
+            raise RuntimeError(f"Qwen 分析出错: {data['message']}")
+            
+    except Exception as e:
+        raise RuntimeError(f"无法连接到 Qwen 服务，请确保 qwen_server.py 正在运行。错误: {e}")
 
 
 def find_latest_analysis_file() -> Path:
@@ -217,7 +283,8 @@ def run_grounding(video_path: str, trigger_time: float, pre_seconds: float, post
     seg_video = str(OUTPUT_DIR / "tmp_trigger_segment.mp4")
 
     print(f"\n=== [0] 裁剪原始视频: {seg_start}s -> {seg_end}s ===")
-    cut_video_segment(video_path, seg_video, seg_start, seg_end)
+    # cut_video_segment(video_path, seg_video, seg_start, seg_end)
+    cut_video_segment_ffmpeg(video_path, seg_video, seg_start, seg_end)
 
     # 1) Qwen 分析（qwen env）—— 对同一个「已裁剪」视频做文字分析
     run_qwen_analysis(seg_video, trigger_time, pre_seconds, post_seconds)
@@ -253,19 +320,21 @@ def run_grounding(video_path: str, trigger_time: float, pre_seconds: float, post
     print("\n=== [D] 剪辑输出（单视频）===")
     print(f"output={out_mp4}")
 
-    clip = VideoFileClip(input_video).subclipped(start, end)
-    final = concatenate_videoclips([clip], method="compose")
-    final.write_videofile(str(out_mp4), codec="libx264", audio_codec="aac")
-    clip.close()
-    final.close()
+    # clip = VideoFileClip(input_video).subclipped(start, end)
+    # final = concatenate_videoclips([clip], method="compose")
+    # final.write_videofile(str(out_mp4), codec="libx264", audio_codec="aac")
+    # clip.close()
+    # final.close()
+
+    cut_video_segment_ffmpeg(input_video, str(out_mp4), start, end)
 
 
 if __name__ == "__main__":
     # 在这里定义你的参数
     video_to_process = str(DATA_DIR / "camera6_from_1h50m_to_end.mp4")
     t_time = 93.0
-    pre = 8.0
-    post = 8.0
+    pre = 5.0
+    post = 5.0
 
     # 传入函数
     run_grounding(

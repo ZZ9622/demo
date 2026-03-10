@@ -1,0 +1,16 @@
+video      : /home/SONY/s7000043358/Sports_HL/demo/output/tmp_trigger_segment.mp4
+trigger    : 978.0s
+model      : Qwen/Qwen2.5-VL-3B-Instruct
+window     : 0.0s – 999999.0s
+camera     : rightbaseline
+sample_fps : 4
+frames     : 34
+
+============================================================
+Result:
+============================================================
+[Before] [0.0, T1]: The player is positioned near the three-point line, holding the ball. The ball is in the player's possession.
+
+[During] [T1, T2]: The player begins to dribble the ball, moving it slightly forward. The ball remains in the player's hands as they continue to dribble.
+
+[After] [T2, 999999.0]: The player continues to dribble the ball, maintaining control over it. The ball is still in the player's possession, and the player's body is in motion, indicating ongoing dribbling action.

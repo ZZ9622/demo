@@ -220,9 +220,9 @@ def analyze(model, processor, clip: np.ndarray, start_sec: float, end_sec: float
     只描述动作，不要添加无法直接识别的细节
 
     输出形式：
-    [Before]:投篮的准备动作\n
-    [During]:出手瞬间的动作和人员空间站位\n(扣篮/投篮，在三分线内/上/外)
-    [After]:投篮结果\n
+    [Before]:描述投篮的准备动作\n
+    [During]:描述出手瞬间的动作和人员空间站位\n(扣篮/投篮，在三分线内/上/外)
+    [After]:描述投篮结果\n
     """
 
     messages = [{"role": "user", "content": [
