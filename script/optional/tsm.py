@@ -432,7 +432,7 @@ class BasketballHighlightDetector:
             basketball_class_ids = [
                 # Core basketball actions (most important) - official indices (corrected)
                 296,  # "shooting basketball" ⭐ shooting action!
-                220,  # "playing basketball" ⭐ playing basketball  
+                # 220,  # "playing basketball" ⭐ playing basketball  
                 99,   # "dribbling basketball" ⭐ dribbling
                 107,  # "dunking basketball" ⭐ dunking
                 357,  # "throwing ball" - general throwing action
@@ -778,7 +778,7 @@ class BasketballHighlightDetector:
         
         plt.xlabel('Time (seconds)')
         plt.ylabel('Basketball Action Probability')
-        plt.title('Basketball Action Detection - Probability Curve & Time Segments')
+        plt.title('Basketball Action Detection')
         plt.legend()
         plt.grid(True, alpha=0.3)
         
