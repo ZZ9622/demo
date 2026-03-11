@@ -1,8 +1,33 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Basketball highlight detection script
-Using TSM model to detect basketball action segments
+Basketball Action Detection Module
+
+This module provides basketball action detection using TSM (Temporal Shift Module) models.
+Can be used as a standalone script or imported as a module for system integration.
+
+Usage as module:
+    from tsm import ActionDetector, main
+    
+    # Method 1: Use ActionDetector class
+    detector = ActionDetector(
+        video_path="/path/to/video.mp4",
+        trigger_time=6700,
+        detection_duration=10,
+        save_clips=True
+    )
+    result = detector.run_detection()
+    
+    # Method 2: Use main function
+    result = main(
+        video_path="/path/to/video.mp4",
+        trigger_time=6700,
+        detection_duration=10,
+        save_clips=True
+    )
+
+Usage as script:
+    python tsm.py
 """
 
 import os
@@ -79,20 +104,30 @@ except ImportError as e:
     print(f"❌ MMAction2 basic import failed: {e}")
     MMACTION2_AVAILABLE = False
 
-class BasketballHighlightDetector:
-    """Basketball highlight detector"""
+# Export main classes and functions for module usage
+__all__ = ['ActionDetector', 'main']
+
+class ActionDetector:
+    """Action detector for basketball highlights"""
     
-    def __init__(self, model_config=None, model_checkpoint=None):
+    def __init__(self, video_path=None, trigger_time=None, detection_duration=None, 
+                 save_clips=True, model_config=None, model_checkpoint=None):
         """
         Initialize detector
         
         Args:
+            video_path: Path to video file for analysis
+            trigger_time: Score board change time point (seconds)
+            detection_duration: Backward detection duration from trigger_time (seconds)
+            save_clips: Whether to save video clips (True=save, False=skip saving for faster testing)
             model_config: TSM model configuration file path
             model_checkpoint: TSM model checkpoint file path
         """
-        self.video_path = "/home/SONY/s7000043396/Downloads/demo/data/apidis/camera6_h264.mp4"
-        self.trigger_time = 6657  # Score board change time point (seconds)
-        self.detection_duration = 10  # Backward detection duration (reduce processing time)
+        # Set default values if not provided
+        self.video_path = video_path or "/home/SONY/s7000043396/Downloads/demo/data/apidis/camera6_h264.mp4"
+        self.trigger_time = trigger_time if trigger_time is not None else 6657
+        self.detection_duration = detection_duration if detection_duration is not None else 10
+        self.save_clips = save_clips  # Control whether to save video clips
         self.window_stride = 0.3  # Sliding window stride (seconds)
         # TSM model configuration - Use absolute paths to avoid working directory issues
         self.model = None
@@ -733,19 +768,25 @@ class BasketballHighlightDetector:
         # Calculate actual output duration
         actual_duration = clip_end - clip_start
         
+        print(f"📹 Processing action clip: {clip_start:.1f}s - {clip_end:.1f}s (action core: {start_time:.1f}s - {end_time:.1f}s)")
+        
+        if not self.save_clips:
+            # Skip actual video extraction for faster testing
+            print(f"⚡ Skipping video extraction (save_clips=False). Would save to: {clip_path}")
+            return str(clip_path)
+        
         # Use ffmpeg to extract clip
         ffmpeg_cmd = f"""
         ffmpeg -i "{self.video_path}" -ss {clip_start} -t {actual_duration} \
         -c:v libx264 -c:a aac -y "{clip_path}"
         """
         
-        print(f"📹 Extracting action clip: {clip_start:.1f}s - {clip_end:.1f}s (action core: {start_time:.1f}s - {end_time:.1f}s)")
         result = os.system(ffmpeg_cmd)
         
         if result != 0:
             raise RuntimeError(f"Video clip extraction failed, command: {ffmpeg_cmd}")
         
-        print(f"Highlight clip saved: {clip_path}")
+        print(f"✅ Highlight clip saved: {clip_path}")
         return str(clip_path)
     
     
@@ -795,6 +836,11 @@ class BasketballHighlightDetector:
         print("=" * 60)
         print("🏀 Starting basketball action segment detection")
         print("=" * 60)
+        print(f"📁 Video path: {self.video_path}")
+        print(f"⏰ Trigger time: {self.trigger_time}s")
+        print(f"⏳ Detection duration: {self.detection_duration}s")
+        print(f"💾 Save clips: {'Enabled' if self.save_clips else 'Disabled (testing mode)'}")
+        print("=" * 60)
         
         # 1. Calculate detection time range
         detection_end = self.trigger_time  # Score board change time
@@ -836,7 +882,7 @@ class BasketballHighlightDetector:
             print(f"   Detected category: {category}")
             
             try:
-                # Extract video clip for this segment
+                # Extract video clip for this segment (or skip if save_clips=False)
                 clip_path = self.extract_highlight_clip(segment)
                 extracted_clips.append({
                     "segment_id": i + 1,
@@ -845,12 +891,17 @@ class BasketballHighlightDetector:
                     "action_duration": end_time - start_time,
                     "average_probability": avg_prob,
                     "detected_category": category,
-                    "clip_path": clip_path
+                    "clip_path": clip_path,
+                    "clip_saved": self.save_clips
                 })
-                print(f"   ✅ Clip saved: {clip_path}")
+                
+                if self.save_clips:
+                    print(f"   ✅ Clip saved: {clip_path}")
+                else:
+                    print(f"   ⚡ Clip processing completed (not saved)")
                 
             except Exception as e:
-                print(f"   ❌ Failed to extract clip for segment {i+1}: {e}")
+                print(f"   ❌ Failed to process clip for segment {i+1}: {e}")
                 continue
         
         # Output final results for all segments
@@ -868,36 +919,86 @@ class BasketballHighlightDetector:
                 print(f"    📏 Duration: {clip_info['action_duration']:.1f}s")
                 print(f"    📊 Probability: {clip_info['average_probability']:.3f}")
                 print(f"    🏷️  Category: {clip_info['detected_category']}")
-                print(f"    🎥 File: {clip_info['clip_path']}")
+                
+                if clip_info['clip_saved']:
+                    print(f"    🎥 File: {clip_info['clip_path']}")
+                else:
+                    print(f"    📂 Path (not saved): {clip_info['clip_path']}")
+            
+            print(f"\n📊 Detection Summary:")
+            print(f"    • Video analyzed: {self.video_path}")
+            print(f"    • Time range: {detection_start:.1f}s - {detection_end:.1f}s")
+            print(f"    • Segments detected: {len(action_segments)}")
+            print(f"    • Clips processed: {len(extracted_clips)}")
+            if self.save_clips:
+                print(f"    • Clips saved: {len([c for c in extracted_clips if c['clip_saved']])}")
+            else:
+                print(f"    • Mode: Testing (clips not saved)")
             
             return {
                 "detection_range": {"start": detection_start, "end": detection_end},
                 "total_segments_detected": len(action_segments),
-                "successfully_extracted": len(extracted_clips),
+                "successfully_processed": len(extracted_clips),
+                "clips_saved": self.save_clips,
                 "segments": extracted_clips
             }
         else:
-            print("❌ No clips were successfully extracted")
+            print("❌ No segments were successfully processed")
             return None
 
-def main():
-    """Main function"""
+def main(video_path=None, trigger_time=None, detection_duration=None, save_clips=True):
+    """
+    Main function with configurable parameters
+    
+    Args:
+        video_path: Path to video file for analysis
+        trigger_time: Score board change time point (seconds)
+        detection_duration: Backward detection duration from trigger_time (seconds)  
+        save_clips: Whether to save video clips (True=save, False=skip for faster testing)
+    """
     try:
-        # Create detector instance
-        detector = BasketballHighlightDetector()
+        # Create detector instance with custom parameters
+        detector = ActionDetector(
+            video_path=video_path,
+            trigger_time=trigger_time,
+            detection_duration=detection_duration,
+            save_clips=save_clips
+        )
         
         # Run detection
         result = detector.run_detection()
         
         if result:
             print("\n🏀 Basketball action segment detection completed!")
+            return result
         else:
             print("\n❌ Basketball action segment detection failed")
+            return None
             
     except Exception as e:
         print(f"Error occurred during detection: {e}")
         import traceback
         traceback.print_exc()
+        return None
+
 
 if __name__ == "__main__":
+    # Example usage for standalone execution:
+    
+    # Default run with current settings
     main()
+    
+    # For system integration, use ActionDetector class directly:
+    # 
+    # from tsm import ActionDetector
+    # 
+    # detector = ActionDetector(
+    #     video_path="/path/to/video.mp4",
+    #     trigger_time=6700,
+    #     detection_duration=10,
+    #     save_clips=True
+    # )
+    # result = detector.run_detection()
+    # 
+    # Or use the main function:
+    # result = main(video_path="...", trigger_time=6700, save_clips=True)
