@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-篮球高光检测脚本
-使用TSM模型检测篮球动作片段
+Basketball highlight detection script
+Using TSM model to detect basketball action segments
 """
 
 import os
@@ -18,46 +18,44 @@ from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
 import matplotlib
 import mmdet
-# 设置matplotlib后端，避免显示问题
-matplotlib.use('Agg')  # 使用非交互式后端
+# Set matplotlib backend to avoid display issues
+matplotlib.use('Agg')  # Use non-interactive backend
 
-# 抑制警告
+# Suppress warnings
 warnings.filterwarnings("ignore")
 
-# MMAction2相关导入
+# MMAction2 related imports
 try:
-    # 首先尝试导入基本的mmaction
+    # First try to import basic mmaction
     import mmaction
     
-    # 尝试导入配置相关
+    # Try to import config related modules
     try:
-        from mmengine import Config  # 新版本
+        from mmengine import Config  # New version
     except ImportError:
-        from mmcv import Config      # 旧版本兼容
+        from mmcv import Config      # Old version compatibility
     
-    # 直接导入我们需要的TSM组件，避开有问题的multimodal模块
+    # Directly import TSM components we need, avoiding problematic multimodal modules
     try:
         from mmaction.models.backbones.resnet_tsm import ResNetTSM
         from mmaction.models.heads.tsm_head import TSMHead  
         from mmaction.models.data_preprocessors.data_preprocessor import ActionDataPreprocessor
         MMACTION2_AVAILABLE = True
-        print("✅ MMAction2已加载，TSM核心组件导入成功")
+        print("✅ MMAction2 loaded, TSM core components imported successfully")
         print("   ResNetTSM backbone ✓")
         print("   TSMHead ✓") 
         print("   ActionDataPreprocessor ✓")
     except ImportError as tsm_error:
-        print(f"⚠️  TSM组件导入遇到问题: {tsm_error}")
+        print(f"⚠️  TSM components encountered import issues: {tsm_error}")
         if 'transformers' in str(tsm_error) or 'apply_chunking_to_forward' in str(tsm_error):
-            print("   这是transformers版本兼容性问题")
-            print("   将绕过multimodal模块，直接使用核心TSM功能")
-            # 尝试绕过multimodal导入问题
+            # Try to bypass multimodal import issues
             try:
                 import sys
-                # 临时屏蔽multimodal模块
+                # Temporarily block multimodal modules
                 if 'mmaction.models.multimodal' in sys.modules:
                     del sys.modules['mmaction.models.multimodal']
                     
-                # 重新导入，这次跳过multimodal
+                # Re-import, this time skipping multimodal
                 import importlib
                 import mmaction.models.backbones.resnet_tsm
                 import mmaction.models.heads.tsm_head
@@ -68,159 +66,84 @@ try:
                 from mmaction.models.data_preprocessors.data_preprocessor import ActionDataPreprocessor
                 
                 MMACTION2_AVAILABLE = True
-                print("✅ 成功绕过multimodal问题，TSM组件加载完成")
+                print("✅ Successfully bypassed multimodal issues, TSM components loaded")
                 
             except Exception as bypass_error:
-                print(f"   绕过失败: {bypass_error}")
+                print(f"   Bypass failed: {bypass_error}")
                 MMACTION2_AVAILABLE = False
         else:
             MMACTION2_AVAILABLE = False
             raise tsm_error
             
 except ImportError as e:
-    print(f"❌ MMAction2基础导入失败: {e}")
+    print(f"❌ MMAction2 basic import failed: {e}")
     MMACTION2_AVAILABLE = False
 
 class BasketballHighlightDetector:
-    """篮球高光检测器"""
+    """Basketball highlight detector"""
     
     def __init__(self, model_config=None, model_checkpoint=None):
         """
-        初始化检测器
+        Initialize detector
         
         Args:
-            model_config: TSM模型配置文件路径
-            model_checkpoint: TSM模型权重文件路径
+            model_config: TSM model configuration file path
+            model_checkpoint: TSM model checkpoint file path
         """
         self.video_path = "/home/SONY/s7000043396/Downloads/demo/data/apidis/camera6_h264.mp4"
-        self.trigger_time = 6657  # 得分板变化时间点（秒）
-        self.detection_duration = 10  # 向前检测6秒（减少处理时间）
-        self.window_stride = 0.3  # 滑动窗口步长（秒）
-        self.basketball_prob_threshold = 0.1  # 篮球动作概率阈值
-        self.clip_duration = 6  # 高光片段持续时间（秒）
-        
-        # TSM模型配置 - 使用绝对路径避免工作目录问题
+        self.trigger_time = 6657  # Score board change time point (seconds)
+        self.detection_duration = 10  # Backward detection duration (reduce processing time)
+        self.window_stride = 0.3  # Sliding window stride (seconds)
+        # TSM model configuration - Use absolute paths to avoid working directory issues
         self.model = None
-        self.device = None  # 设备会在_init_model中初始化
+        self.device = None  # Device will be initialized in _init_model
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.model_config = model_config or os.path.join(script_dir, "checkpoints/tsm_imagenet-pretrained-r50_8xb16-1x1x8-50e_kinetics400-rgb.py")
         self.model_checkpoint = model_checkpoint or os.path.join(script_dir, "checkpoints/tsm_imagenet-pretrained-r50_8xb16-1x1x8-50e_kinetics400-rgb_20220831-64d69186.pth")
         
-        # 篮球相关动作类别（Kinetics400数据集中的相关类别）
-        self.basketball_actions = {
-            'playing basketball': 0,
-            'dribbling basketball': 1, 
-            'dunking basketball': 2,
-            'shooting basketball': 3,
-            'passing american football (not in game)': 4,  # 可能包含投掷动作
-        }
-        
-        # 添加模拟时间计数器用于生成现实的概率曲线
+        # Add simulation time counter for generating realistic probability curves
         self._simulation_counter = 0
+        
+        # Kinetics-400 basketball action categories mapping
+        self.kinetics400_basketball_labels = {
+            99: "dribbling basketball",
+            107: "dunking basketball", 
+            220: "playing basketball",
+            296: "shooting basketball",
+            357: "throwing ball"
+        }
         
         self._init_model()
     
-    def _get_default_tsm_config(self):
-        """获取默认TSM模型配置"""
-        if not MMACTION2_AVAILABLE:
-            return None
-        
-        config_dir = "configs/recognition/tsm"
-        config_path = f"{config_dir}/tsm_r50_1x1x8_50e_kinetics400_rgb.py"
-        
-        # 创建配置目录
-        os.makedirs(config_dir, exist_ok=True)
-        
-        # 如果配置文件不存在，创建一个基本的配置
-        if not os.path.exists(config_path):
-            print(f"📝 创建TSM配置文件: {config_path}")
-            self._create_tsm_config(config_path)
-        
-        return config_path if os.path.exists(config_path) else None
-    
-    def _create_tsm_config(self, config_path):
-        """创建正确的TSM模型配置文件"""
-        # 使用正确的TSM配置
-        config = {
-            'model': {
-                'type': 'Recognizer2D',
-                'backbone': {
-                    'type': 'ResNetTSM',  # 正确的TSM backbone类型
-                    'pretrained': 'torchvision://resnet50',
-                    'depth': 50,
-                    'norm_eval': False,
-                    'shift_div': 8  # TSM特有的参数
-                },
-                'cls_head': {
-                    'type': 'TSMHead',
-                    'num_classes': 400,
-                    'in_channels': 2048,
-                    'spatial_type': 'avg',
-                    'consensus': {'type': 'AvgConsensus', 'dim': 1},
-                    'dropout_ratio': 0.5,  # 使用标准TSM配置
-                    'init_std': 0.001,     # 使用标准TSM配置
-                    'is_shift': True,      # TSM特有参数
-                    'average_clips': 'prob'
-                },
-                'data_preprocessor': {
-                    'type': 'ActionDataPreprocessor',
-                    'mean': [123.675, 116.28, 103.53],
-                    'std': [58.395, 57.12, 57.375]
-                },
-                'train_cfg': None,
-                'test_cfg': {'average_clips': 'prob'}
-            }
-        }
-        
-        # 直接返回配置字典，不写文件
-        return config
-    
-    def _download_tsm_checkpoint(self):
-        """下载TSM预训练权重"""
-        if not MMACTION2_AVAILABLE:
-            return None
-            
-        checkpoint_url = "https://download.openmmlab.com/mmaction/recognition/tsm/tsm_r50_1x1x8_50e_kinetics400_rgb/tsm_r50_1x1x8_50e_kinetics400_rgb_20200614-e508be42.pth"
-        checkpoint_path = "checkpoints/tsm_r50_kinetics400.pth"
-        
-        os.makedirs("checkpoints", exist_ok=True)
-        
-        if not os.path.exists(checkpoint_path):
-            print(f"📥 TSM权重文件不存在，准备下载...")
-            return None  # 暂不自动下载大文件
-        else:
-            print(f"✅ 权重文件已存在：{checkpoint_path}")
-            return checkpoint_path
-    
     
     def _init_model(self):
-        """初始化完整TSM模型（绕过transformers问题）"""
+        """Initialize complete TSM model (bypass transformers issues)"""
         if not MMACTION2_AVAILABLE:
-            print("❌ MMAction2不可用，无法加载TSM模型")
+            print("❌ MMAction2 not available, cannot load TSM model")
             self.model = None
             return
         
-        # 检查GPU可用性
+        # Check GPU availability
         device = 'cuda' if os.system('nvidia-smi') == 0 else 'cpu'
         self.device = device
-        print(f"🖥️  使用设备: {device.upper()}")
+        print(f"🖥️  Using device: {device.upper()}")
         
-        # 检查权重文件是否存在
+        # Check if weight file exists
         if not os.path.exists(self.model_checkpoint):
-            print(f"❌ 权重文件不存在: {self.model_checkpoint}")
-            print("请确保下载了TSM权重文件")
+            print(f"❌ Weight file does not exist: {self.model_checkpoint}")
+            print("Please ensure TSM weight file is downloaded")
             self.model = None
             return
         
         try:
-            print("🔧 构建完整TSM模型（原生组件）...")
+            print("🔧 Building complete TSM model (native components)...")
             
-            # 导入必要组件，绕过transformers问题
+            # Import necessary components, bypassing transformers issues
             import sys
             import warnings
             warnings.filterwarnings('ignore')
             
-            # 临时禁用multimodal模块的导入
+            # Temporarily disable multimodal module imports
             original_modules = {}
             multimodal_modules = []
             for module_name in list(sys.modules.keys()):
@@ -230,7 +153,7 @@ class BasketballHighlightDetector:
                     del sys.modules[module_name]
             
             try:
-                # 导入核心TSM组件
+                # Import core TSM components
                 from mmaction.models.backbones.resnet_tsm import ResNetTSM
                 from mmaction.models.heads.tsm_head import TSMHead
                 from mmaction.models.data_preprocessors.data_preprocessor import ActionDataPreprocessor
@@ -239,14 +162,14 @@ class BasketballHighlightDetector:
                 import torch
                 import torch.nn as nn
                 
-                # 创建简化但完整的TSM模型
+                # Create simplified but complete TSM model
                 class SimplifiedTSMModel(nn.Module):
                     def __init__(self, checkpoint_path, device):
                         super().__init__()
                         self.device = device
                         
-                        print("   构建ResNetTSM骨干网络...")
-                        # TSM骨干网络
+                        print("   Building ResNetTSM backbone...")
+                        # TSM backbone network
                         self.backbone = ResNetTSM(
                             depth=50,
                             pretrained=None,  
@@ -254,31 +177,31 @@ class BasketballHighlightDetector:
                             shift_div=8
                         )
                         
-                        print("   构建简化分类头...")
-                        # 简化的分类头，避免TSMHead的复杂性
+                        print("   Building simplified classification head...")
+                        # Simplified classification head, avoiding TSMHead complexity
                         self.cls_head = nn.Sequential(
                             nn.AdaptiveAvgPool2d((1, 1)),
                             nn.Flatten(),
                             nn.Dropout(0.5),
-                            nn.Linear(2048, 400)  # Kinetics400类别数
+                            nn.Linear(2048, 400)  # Kinetics400 class count
                         )
                         
-                        # 数据预处理参数
+                        # Data preprocessing parameters
                         self.mean = torch.tensor([123.675, 116.28, 103.53]).view(1, 3, 1, 1)
                         self.std = torch.tensor([58.395, 57.12, 57.375]).view(1, 3, 1, 1)
                         
-                        print("   加载预训练权重...")
-                        # 加载预训练权重
+                        print("   Loading pretrained weights...")
+                        # Load pretrained weights
                         self._load_checkpoint(checkpoint_path)
                         
-                        # 移动到设备并设置评估模式
+                        # Move to device and set evaluation mode
                         self.to(device)
                         self.eval()
                         self.mean = self.mean.to(device)
                         self.std = self.std.to(device)
                     
                     def _load_checkpoint(self, checkpoint_path):
-                        """加载预训练权重 (修复版)"""
+                        """Load pretrained weights (fixed version)"""
                         checkpoint = torch.load(checkpoint_path, map_location='cpu')
                         if 'state_dict' in checkpoint:
                             state_dict = checkpoint['state_dict']
@@ -288,57 +211,57 @@ class BasketballHighlightDetector:
                         backbone_state = {}
                         cls_head_state = {}
                         
-                        # 解析状态字典
+                        # Parse state dictionary
                         for key, value in state_dict.items():
-                            # 1. 提取骨干网络权重
+                            # 1. Extract backbone weights
                             if key.startswith('backbone.'):
                                 new_key = key.replace('backbone.', '')
                                 backbone_state[new_key] = value
-                            # 2. 提取分类头权重 (MMAction2 中通常叫 cls_head.fc_cls.weight / bias)
+                            # 2. Extract classification head weights (usually called cls_head.fc_cls.weight/bias in MMAction2)
                             elif key.startswith('cls_head.fc_cls.'):
-                                # 将其映射到我们 SimplifiedTSMModel 的 nn.Sequential 中的第3层 (nn.Linear)
+                                # Map to layer 3 (nn.Linear) in our SimplifiedTSMModel's nn.Sequential
                                 new_key = key.replace('cls_head.fc_cls.', '3.')
                                 cls_head_state[new_key] = value
                         
-                        # 加载骨干网络
+                        # Load backbone
                         if backbone_state:
                             missing, unexpected = self.backbone.load_state_dict(backbone_state, strict=False)
-                            print(f"     骨干网络: 成功加载 {len(backbone_state) - len(missing)} 个权重")
+                            print(f"     Backbone: successfully loaded {len(backbone_state) - len(missing)} weights")
                             
-                        # 加载分类头
+                        # Load classification head
                         if cls_head_state:
                             missing, unexpected = self.cls_head.load_state_dict(cls_head_state, strict=False)
                             if len(missing) == 0:
-                                print(f"     分类头: 成功加载分类权重 (不再是随机噪声了！)")
+                                print(f"     Classification head: successfully loaded weights (no more random noise!)")
                             else:
-                                print(f"     分类头加载有缺失: {missing}")
+                                print(f"     Classification head loading missing: {missing}")
                     
                     def predict(self, frames):
-                        """预测模式"""
+                        """Prediction mode"""
                         with torch.no_grad():
-                            # 预处理输入
+                            # Preprocess input
                             if isinstance(frames, np.ndarray):
-                                # 选择代表性帧 (取8帧用于TSM)
+                                # Select representative frames (take 8 frames for TSM)
                                 if len(frames) > 8:
                                     indices = np.linspace(0, len(frames)-1, 8, dtype=int)
                                     frames = frames[indices]
                                 
-                                # 转换格式: (T, H, W, C) -> (T, C, H, W)
+                                # Convert format: (T, H, W, C) -> (T, C, H, W)
                                 frames_tensor = torch.from_numpy(frames).float()
                                 if len(frames_tensor.shape) == 4:
                                     frames_tensor = frames_tensor.permute(0, 3, 1, 2)
                                 frames_tensor = frames_tensor.to(self.device)
                                 
-                                # 标准化
+                                # Normalize
                                 frames_tensor = (frames_tensor - self.mean) / self.std
                             else:
                                 frames_tensor = frames
                             
-                            # TSM前向传播
+                            # TSM forward pass
                             features = self.backbone(frames_tensor)
                             logits = self.cls_head(features)
                             
-                            # 计算概率（对时间维度求平均）
+                            # Calculate probabilities (average over time dimension)
                             if len(logits.shape) > 2:  # (T, N, Classes)
                                 logits = logits.mean(dim=0)  # -> (N, Classes)
                             if len(logits.shape) > 1:  # (N, Classes)
@@ -351,50 +274,50 @@ class BasketballHighlightDetector:
                                 'pred_labels': torch.argsort(probs, descending=True)
                             }
                 
-                # 创建简化TSM模型实例
+                # Create simplified TSM model instance
                 self.model = SimplifiedTSMModel(self.model_checkpoint, self.device)
                 
-                print("✅ 完整TSM模型构建成功")
-                print(f"   - 骨干网络: ResNetTSM-50 (原生)")
-                print(f"   - 分类头: TSMHead (原生)")
-                print(f"   - 数据预处理: ActionDataPreprocessor (原生)")
-                print(f"   - 权重: Kinetics400预训练")
+                print("✅ Complete TSM model built successfully")
+                print(f"   - Backbone: ResNetTSM-50 (native)")
+                print(f"   - Classification head: TSMHead (native)")
+                print(f"   - Data preprocessing: ActionDataPreprocessor (native)")
+                print(f"   - Weights: Kinetics400 pretrained")
                 
             finally:
-                # 恢复multimodal模块（如果需要）
+                # Restore multimodal modules (if needed)
                 for module_name, module in original_modules.items():
                     if module_name not in sys.modules:
                         sys.modules[module_name] = module
                         
         except Exception as e:
-            print(f"❌ 完整TSM模型构建失败: {e}")
-            print("详细错误:")
+            print(f"❌ Complete TSM model build failed: {e}")
+            print("Detailed error:")
             import traceback
             traceback.print_exc()
             self.model = None
     
     def extract_video_segment(self, start_time: float, end_time: float) -> np.ndarray:
         """
-        从视频中提取指定时间段的帧
+        Extract frames from video within specified time range
         
         Args:
-            start_time: 开始时间（秒）
-            end_time: 结束时间（秒）
+            start_time: Start time (seconds)
+            end_time: End time (seconds)
             
         Returns:
-            提取的视频帧数组
+            Extracted video frames array
         """
         cap = cv2.VideoCapture(self.video_path)
         if not cap.isOpened():
-            raise ValueError(f"无法打开视频文件：{self.video_path}")
+            raise ValueError(f"Cannot open video file: {self.video_path}")
         
         fps = cap.get(cv2.CAP_PROP_FPS)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         duration = total_frames / fps
         
-        print(f"视频信息：{fps:.1f} fps, {total_frames} 帧, {duration:.1f} 秒")
+        print(f"Video info: {fps:.1f} fps, {total_frames} frames, {duration:.1f} seconds")
         
-        # 计算帧范围
+        # Calculate frame range
         start_frame = max(0, int(start_time * fps))
         end_frame = min(total_frames, int(end_time * fps))
         
@@ -406,84 +329,94 @@ class BasketballHighlightDetector:
             if not ret:
                 break
             
-            # 转为RGB格式并调整大小
+            # Convert to RGB format and resize
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frame_rgb = cv2.resize(frame_rgb, (224, 224))  # TSM标准输入尺寸
+            frame_rgb = cv2.resize(frame_rgb, (224, 224))  # TSM standard input size
             frames.append(frame_rgb)
         
         cap.release()
         
         if not frames:
-            raise ValueError(f"无法从时间段 {start_time}-{end_time} 提取帧")
+            raise ValueError(f"Cannot extract frames from time range {start_time}-{end_time}")
         
         return np.array(frames)
     
-    def sliding_window_inference(self, start_time: float, end_time: float) -> Tuple[List[float], List[float]]:
+    def sliding_window_inference(self, start_time: float, end_time: float) -> Tuple[List[float], List[float], List[dict]]:
         """
-        滑动窗口进行TSM推理
+        Sliding window TSM inference
         
         Args:
-            start_time: 检测开始时间
-            end_time: 检测结束时间
+            start_time: Detection start time
+            end_time: Detection end time
             
         Returns:
-            时间点列表和对应的篮球动作概率列表
+            Tuple of (timestamps, probabilities, detection_info) where detection_info contains category information
         """
         timestamps = []
         probabilities = []
+        detection_info = []
         
         current_time = start_time
-        window_size = 1.5  # 1.5秒的窗口大小（减少处理时间）
+        window_size = 1.5  # 1.5 second window size (reduce processing time)
         
-        print(f"开始滑动窗口检测，时间范围：{start_time:.1f}s - {end_time:.1f}s")
+        print(f"Starting sliding window detection, time range: {start_time:.1f}s - {end_time:.1f}s")
         total_windows = int((end_time - start_time - window_size) / self.window_stride) + 1
-        print(f"预计处理 {total_windows} 个窗口")
+        print(f"Expected to process {total_windows} windows")
         
         window_count = 0
         while current_time + window_size <= end_time:
             try:
                 window_count += 1
-                # 提取当前窗口的帧
+                # Extract frames from current window
                 window_frames = self.extract_video_segment(current_time, current_time + window_size)
                 
-                # TSM推理
-                basketball_prob = self._tsm_inference(window_frames)
+                # TSM inference
+                inference_result = self._tsm_inference(window_frames)
+                basketball_prob = inference_result['probability']
                 
-                timestamps.append(current_time + window_size/2)  # 窗口中心时间
+                timestamps.append(current_time + window_size/2)  # Window center time
                 probabilities.append(basketball_prob)
+                detection_info.append(inference_result)
                 
-                # 显示进度
+                # Show progress
                 progress = (window_count / total_windows) * 100
-                print(f"[{progress:.1f}%] 时间 {current_time:.1f}s: 篮球动作概率 = {basketball_prob:.3f}")
+                category = inference_result.get('category', 'unknown')
+                print(f"[{progress:.1f}%] Time {current_time:.1f}s: Probability = {basketball_prob:.3f}, Category: {category}")
                 
                 current_time += self.window_stride
                 
             except Exception as e:
-                print(f"处理时间窗口 {current_time:.1f}s 时出错：{e}")
+                print(f"Error processing time window {current_time:.1f}s: {e}")
                 current_time += self.window_stride
                 continue
         
-        return timestamps, probabilities
+        return timestamps, probabilities, detection_info
     
-    def _tsm_inference(self, frames: np.ndarray) -> float:
+    def _tsm_inference(self, frames: np.ndarray) -> dict:
         """
-        使用TSM模型进行推理
+        Use TSM model for inference
         
         Args:
-            frames: 视频帧数组
+            frames: Video frames array
             
         Returns:
-            篮球相关动作的概率
+            Dictionary containing basketball probability and detected category info
         """
         if self.model is None:
-            # 增强的篮球动作检测算法
-            return self._enhanced_basketball_detection(frames)
+            # Enhanced basketball action detection algorithm
+            prob = self._enhanced_basketball_detection(frames)
+            return {
+                'probability': prob,
+                'category': 'enhanced_detection',
+                'category_id': -1,
+                'top_categories': []
+            }
         
         try:
-            # 直接使用完整TSM模型进行推理
+            # Directly use complete TSM model for inference
             results = self.model.predict(frames)
             
-            # 解析结果
+            # Parse results
             if hasattr(results, 'pred_scores'):
                 scores = results.pred_scores.cpu().numpy()
             elif isinstance(results, dict) and 'pred_scores' in results:
@@ -491,306 +424,353 @@ class BasketballHighlightDetector:
                 if hasattr(scores, 'cpu'):
                     scores = scores.cpu().numpy()
             else:
-                print(f"未预期的推理结果格式: {type(results)}")
+                print(f"Unexpected inference result format: {type(results)}")
                 return self._enhanced_basketball_detection(frames)
             
-            # Kinetics-400数据集中篮球相关动作的官方类别索引（MMAction2官方验证）
-            # 来源：https://github.com/open-mmlab/mmaction2/blob/main/tools/data/kinetics/label_map_k400.txt
+            # Official category indices for basketball-related actions in Kinetics-400 dataset (MMAction2 official verification)
+            # Source: https://github.com/open-mmlab/mmaction2/blob/main/tools/data/kinetics/label_map_k400.txt
             basketball_class_ids = [
-                # 核心篮球动作（最重要） - 官方索引（修正）
-                296,  # "shooting basketball" ⭐ 投篮动作！
-                220,  # "playing basketball" ⭐ 打篮球  
-                99,   # "dribbling basketball" ⭐ 运球
-                107,  # "dunking basketball" ⭐ 扣篮
-                357,  # "throwing ball" - 一般投球动作
+                # Core basketball actions (most important) - official indices (corrected)
+                296,  # "shooting basketball" ⭐ shooting action!
+                220,  # "playing basketball" ⭐ playing basketball  
+                99,   # "dribbling basketball" ⭐ dribbling
+                107,  # "dunking basketball" ⭐ dunking
+                357,  # "throwing ball" - general throwing action
             ]
             
-            # 提取所有概率用于调试和分析
+            # Extract all probabilities for debugging and analysis
             if len(scores) >= 400:
-                # 找到top-10概率及其类别索引
+                # Find top-10 probabilities and their category indices
                 top_indices = np.argsort(scores)[-10:][::-1]
                 top_probs = [scores[i] for i in top_indices]
-                print(f"     Top-10概率: {[f'{prob:.4f}(#{idx})' for idx, prob in zip(top_indices, top_probs)]}")
+                print(f"     Top-10 probabilities: {[f'{prob:.4f}(#{idx})' for idx, prob in zip(top_indices, top_probs)]}")
                 
-                # 篮球相关类别概率
+                # Basketball related category probabilities
                 basketball_scores = [(i, scores[i]) for i in basketball_class_ids[:8] if i < len(scores)]
-                print(f"     篮球类别: {[f'{prob:.4f}(#{idx})' for idx, prob in basketball_scores]}")
+                print(f"     Basketball categories: {[f'{prob:.4f}(#{idx})' for idx, prob in basketball_scores]}")
             
-            # 提取篮球相关类别的概率
+            # Extract probabilities for basketball-related categories
             basketball_probs = []
             for class_id in basketball_class_ids:
                 if class_id < len(scores):
                     basketball_probs.append(float(scores[class_id]))
             
-            # 计算最终篮球动作概率 - 增强检测策略
+            # Calculate final basketball action probability - enhanced detection strategy
             if basketball_probs:
                 max_basketball = max(basketball_probs)
                 avg_basketball = np.mean(basketball_probs)
                 
-                # 重点关注shooting basketball (296)和playing basketball (220)
+                # Focus on shooting basketball (296) and playing basketball (220)
                 shooting_prob = scores[296] if 296 < len(scores) else 0
                 playing_prob = scores[220] if 220 < len(scores) else 0
                 
-                # 结合核心动作概率
-                core_basketball_prob = max(shooting_prob, playing_prob) * 2.0  # 重点增强投篮和打篮球
+                # Combine core action probabilities
+                core_basketball_prob = max(shooting_prob, playing_prob) * 2.0  # Emphasize shooting and playing basketball
                 combined_prob = max_basketball * 0.6 + avg_basketball * 0.4
                 
-                # 取较高值作为最终概率
+                # Take higher value as final probability
                 basketball_prob = max(core_basketball_prob, combined_prob)
                 
-                # 如果篮球概率相对于整体分布较高，进一步增强
+                # Further enhance if basketball probability is relatively high compared to overall distribution
                 if len(scores) >= 400:
                     overall_avg = np.mean(scores)
                     relative_strength = max_basketball / overall_avg if overall_avg > 0 else 1
                     
-                    if relative_strength > 1.1:  # 篮球概率比平均高10%以上
-                        enhancement_factor = min(3.0, 1.0 + relative_strength)  # 最多增强3倍
+                    if relative_strength > 1.1:  # Basketball probability 10% higher than average
+                        enhancement_factor = min(3.0, 1.0 + relative_strength)  # Maximum 3x enhancement
                         basketball_prob *= enhancement_factor
-                        print(f"     概率增强倍数: {enhancement_factor:.2f}x (相对强度: {relative_strength:.2f})")
+                        print(f"     Probability enhancement factor: {enhancement_factor:.2f}x (relative strength: {relative_strength:.2f})")
                 
             else:
-                # 使用top-10概率的加权平均作为替代
+                # Use weighted average of top-10 probabilities as alternative
                 top_scores = sorted(scores, reverse=True)[:10]
-                basketball_prob = np.mean(top_scores) * 1.2  # 稍微增强
-                print(f"     使用top-10替代: {np.mean(top_scores):.4f}")
+                basketball_prob = np.mean(top_scores) * 1.2  # Slight enhancement
+                print(f"     Using top-10 alternative: {np.mean(top_scores):.4f}")
             
-            # 动态调整概率范围，提高检测灵敏度
+            # Dynamically adjust probability range to improve detection sensitivity
             basketball_prob = max(0.001, min(0.99, float(basketball_prob)))
             
-            print(f"完整TSM模型推理结果: {basketball_prob:.4f}")
-            return basketball_prob
+            # Find the most likely basketball action category
+            best_basketball_idx = -1
+            best_basketball_prob = 0
+            for class_id in basketball_class_ids:
+                if class_id < len(scores) and scores[class_id] > best_basketball_prob:
+                    best_basketball_prob = scores[class_id]
+                    best_basketball_idx = class_id
+            
+            # Get top 3 overall categories for context
+            top_indices = np.argsort(scores)[-3:][::-1] if len(scores) >= 3 else []
+            top_categories = []
+            for idx in top_indices:
+                if idx < len(scores):
+                    category_name = self.kinetics400_basketball_labels.get(idx, f"class_{idx}")
+                    top_categories.append({
+                        'id': int(idx),
+                        'name': category_name,
+                        'probability': float(scores[idx])
+                    })
+            
+            # Prepare result
+            detected_category = self.kinetics400_basketball_labels.get(best_basketball_idx, f"class_{best_basketball_idx}")
+            
+            result = {
+                'probability': basketball_prob,
+                'category': detected_category if best_basketball_idx != -1 else 'unknown',
+                'category_id': best_basketball_idx,
+                'category_prob': best_basketball_prob,
+                'top_categories': top_categories
+            }
+            
+            print(f"Complete TSM model inference result: {basketball_prob:.4f}, Category: {detected_category}")
+            return result
             
         except Exception as e:
-            print(f"完整TSM推理出错: {e}")
-            print("回退到增强检测算法")
-            return self._enhanced_basketball_detection(frames)
+            print(f"Complete TSM inference error: {e}")
+            print("Falling back to enhanced detection algorithm")
+            prob = self._enhanced_basketball_detection(frames)
+            return {
+                'probability': prob,
+                'category': 'enhanced_detection',
+                'category_id': -1,
+                'top_categories': []
+            }
     
     def _enhanced_basketball_detection(self, frames: np.ndarray) -> float:
         """
-        增强的篮球动作检测算法
-        基于计算机视觉的运动、颜色特征和篮球场特征分析
+        Enhanced basketball action detection algorithm
+        Based on computer vision analysis of motion, color features, and basketball court features
         """
         if len(frames) < 2:
             return 0.1
         
-        # 1. 计算帧间差异（运动程度）
+        # 1. Calculate inter-frame differences (motion intensity)
         motion_score = 0.0
         for i in range(1, len(frames)):
-            # 转换为灰度计算光流
+            # Convert to grayscale for optical flow calculation
             gray1 = cv2.cvtColor(frames[i-1], cv2.COLOR_RGB2GRAY)
             gray2 = cv2.cvtColor(frames[i], cv2.COLOR_RGB2GRAY)
             diff = cv2.absdiff(gray1, gray2)
             motion_score += np.mean(diff) / 255.0
         motion_score /= (len(frames) - 1)
         
-        # 2. 检测橙色（篮球颜色）
+        # 2. Detect orange color (basketball color)
         orange_score = 0.0
         for frame in frames:
             hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
-            # 橙色HSV范围（篮球）
+            # Orange HSV range (basketball)
             orange_mask = cv2.inRange(hsv, (5, 100, 100), (25, 255, 255))
             orange_score += np.sum(orange_mask) / (frame.shape[0] * frame.shape[1] * 255)
         orange_score /= len(frames)
         
-        # 3. 检测篮球场特征（绿色/红色/蓝色场地）
+        # 3. Detect basketball court features (green/red/blue court)
         court_score = 0.0
         for frame in frames:
             hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
-            # 绿色场地
+            # Green court
             green_mask = cv2.inRange(hsv, (40, 40, 40), (80, 255, 255))
-            # 红色场地
+            # Red court
             red_mask = cv2.inRange(hsv, (160, 40, 40), (180, 255, 255))
-            # 蓝色场地
+            # Blue court
             blue_mask = cv2.inRange(hsv, (100, 40, 40), (140, 255, 255))
             
             court_pixels = np.sum(green_mask) + np.sum(red_mask) + np.sum(blue_mask)
             court_score += court_pixels / (frame.shape[0] * frame.shape[1] * 255 * 3)
         court_score /= len(frames)
         
-        # 4. 检测人体运动（基于边缘检测）
+        # 4. Detect human motion (based on edge detection)
         human_motion_score = 0.0
         for frame in frames:
             gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
             edges = cv2.Canny(gray, 50, 150)
-            # 计算边缘密度作为人体运动的代理
+            # Calculate edge density as proxy for human motion
             human_motion_score += np.sum(edges > 0) / (frame.shape[0] * frame.shape[1])
         human_motion_score /= len(frames)
         
-        # 5. 组合得分（加权）
+        # 5. Combine scores (weighted)
         combined_score = (
-            0.25 * motion_score +           # 运动强度
-            0.35 * orange_score +           # 篮球颜色
-            0.25 * court_score +            # 篮球场特征
-            0.15 * human_motion_score       # 人体运动
+            0.25 * motion_score +           # Motion intensity
+            0.35 * orange_score +           # Basketball color
+            0.25 * court_score +            # Basketball court features
+            0.15 * human_motion_score       # Human motion
         )
         
-        # 6. 添加基于滑动窗口位置的模拟高光时刻
-        # 在检测窗口的某些特定相对时间点增加高概率
-        window_progress = self._simulation_counter / 20.0  # 假设总共有20个窗口
+        # 6. Add simulated highlight moments based on sliding window position
+        # Add high probability at specific relative time points in detection window
+        window_progress = self._simulation_counter / 20.0  # Assume total of 20 windows
         
-        # 在检测时间段的特定位置模拟篮球高光事件
-        if 0.2 <= window_progress <= 0.3:  # 检测窗口的20%-30%位置
-            combined_score += 0.25 + 0.1 * np.sin(window_progress * 20)  # 轻微投篮动作
-        elif 0.5 <= window_progress <= 0.65:  # 检测窗口的50%-65%位置
-            combined_score += 0.45 + 0.2 * np.sin(window_progress * 15)  # 中等强度动作
-        elif 0.75 <= window_progress <= 0.85:  # 检测窗口的75%-85%位置
-            combined_score += 0.55 + 0.3 * np.sin(window_progress * 25)  # 强烈扣篮动作
+        # Simulate basketball highlight events at specific positions in detection time range
+        if 0.2 <= window_progress <= 0.3:  # 20%-30% position of detection window
+            combined_score += 0.25 + 0.1 * np.sin(window_progress * 20)  # Slight shooting action
+        elif 0.5 <= window_progress <= 0.65:  # 50%-65% position of detection window
+            combined_score += 0.45 + 0.2 * np.sin(window_progress * 15)  # Medium intensity action
+        elif 0.75 <= window_progress <= 0.85:  # 75%-85% position of detection window
+            combined_score += 0.55 + 0.3 * np.sin(window_progress * 25)  # Strong dunking action
         
         self._simulation_counter += 1
         
-        # 7. 添加随机噪声模拟真实波动
+        # 7. Add random noise to simulate real fluctuations
         noise = np.random.normal(0, 0.03)
         final_score = max(0.05, min(0.95, combined_score + noise))
         
-        # 8. 增强波峰效果：如果得分较高，增加一些非线性增强
+        # 8. Enhance peak effects: if score is high, add some non-linear enhancement
         if final_score > 0.4:
-            final_score = final_score ** 0.8  # 非线性增强高分
+            final_score = final_score ** 0.8  # Non-linear enhancement for high scores
         
         return final_score
     
-    def find_action_segments(self, timestamps: List[float], probabilities: List[float]) -> List[Tuple[float, float, float]]:
+    def find_action_segments(self, timestamps: List[float], probabilities: List[float], detection_info: List[dict]) -> List[Tuple[float, float, float, str]]:
         """
-        找到概率曲线中的连续动作时间段
+        Find continuous action time segments in probability curve
         
         Args:
-            timestamps: 时间点列表
-            probabilities: 概率值列表
+            timestamps: List of time points
+            probabilities: List of probability values
+            detection_info: List of detection information including categories
             
         Returns:
-            动作段列表，每个元素为 (起始时间, 结束时间, 平均概率)
+            List of action segments, each element is (start_time, end_time, average_probability, primary_category)
         """
         if len(probabilities) < 2:
             return []
         
-        # 设定动作检测阈值（相对较低以捕获更多动作）
-        action_threshold = 0.3  # 适应TSM真实输出范围（0.005-0.006）
-        min_segment_duration = 0.5  # 最小动作时间段（秒）  
-        max_gap_duration = 1.0     # 允许的最大间隙（秒）
+        # Set action detection threshold (relatively low to capture more actions)
+        action_threshold = 0.3  # Adapted to TSM real output range (0.005-0.006)
+        min_segment_duration = 0.5  # Minimum action time segment (seconds)  
+        max_gap_duration = 1.0     # Maximum allowed gap (seconds)
         
         segments = []
         current_segment_start = None
         current_segment_probs = []
+        current_segment_categories = []
         last_above_threshold_time = None
         
-        print(f"🔍 寻找连续动作时间段 (阈值: {action_threshold:.3f})...")
+        print(f"🔍 Finding continuous action time segments (threshold: {action_threshold:.3f})...")
         
         for i, (timestamp, prob) in enumerate(zip(timestamps, probabilities)):
+            detection = detection_info[i] if i < len(detection_info) else {}
+            
             if prob >= action_threshold:
-                # 概率超过阈值
+                # Probability exceeds threshold
                 if current_segment_start is None:
-                    # 开始新的动作段
+                    # Start new action segment
                     current_segment_start = timestamp
                     current_segment_probs = [prob]
+                    current_segment_categories = [detection.get('category', 'unknown')]
                 else:
-                    # 继续当前动作段
+                    # Continue current action segment
                     current_segment_probs.append(prob)
+                    current_segment_categories.append(detection.get('category', 'unknown'))
                 last_above_threshold_time = timestamp
                 
             else:
-                # 概率低于阈值
+                # Probability below threshold
                 if current_segment_start is not None:
-                    # 检查是否应该结束当前段还是允许短暂间隙
+                    # Check whether to end current segment or allow short gap
                     gap_duration = timestamp - last_above_threshold_time
                     if gap_duration <= max_gap_duration:
-                        # 允许短暂间隙，继续当前段（但不添加低概率值）
+                        # Allow short gap, continue current segment (but don't add low probability values)
                         continue
                     else:
-                        # 间隙太长，结束当前动作段
+                        # Gap too long, end current action segment
                         segment_end = last_above_threshold_time
                         segment_duration = segment_end - current_segment_start
                         
                         if segment_duration >= min_segment_duration:
                             avg_prob = np.mean(current_segment_probs)
-                            segments.append((current_segment_start, segment_end, avg_prob))
+                            # Find most common category in this segment
+                            primary_category = max(set(current_segment_categories), key=current_segment_categories.count)
+                            segments.append((current_segment_start, segment_end, avg_prob, primary_category))
                         
-                        # 重置
+                        # Reset
                         current_segment_start = None
                         current_segment_probs = []
+                        current_segment_categories = []
         
-        # 处理最后一个可能的动作段
+        # Process last possible action segment
         if current_segment_start is not None and last_above_threshold_time is not None:
             segment_duration = last_above_threshold_time - current_segment_start
             if segment_duration >= min_segment_duration:
                 avg_prob = np.mean(current_segment_probs)
-                segments.append((current_segment_start, last_above_threshold_time, avg_prob))
+                primary_category = max(set(current_segment_categories), key=current_segment_categories.count) if current_segment_categories else 'unknown'
+                segments.append((current_segment_start, last_above_threshold_time, avg_prob, primary_category))
         
-        # 按平均概率排序
+        # Sort by average probability
         segments.sort(key=lambda x: x[2], reverse=True)
         
-        print(f"🏀 发现 {len(segments)} 个投球动作时间段：")
-        for i, (start, end, avg_prob) in enumerate(segments):
+        print(f"🏀 Found {len(segments)} action time segments:")
+        for i, (start, end, avg_prob, category) in enumerate(segments):
             duration = end - start
-            print(f"  {i+1}. 时间段: {start:.1f}s - {end:.1f}s ({duration:.1f}s), 平均概率: {avg_prob:.3f}")
+            print(f"  {i+1}. Time range: {start:.1f}s - {end:.1f}s ({duration:.1f}s), Average probability: {avg_prob:.3f}, Category: {category}")
         
         return segments
     
-    def extract_highlight_clip(self, action_segment: Tuple[float, float, float]) -> str:
+    def extract_highlight_clip(self, action_segment: Tuple[float, float, float, str]) -> str:
         """
-        根据动作时间段提取高光片段
+        Extract highlight clip based on action time segment
         
         Args:
-            action_segment: (起始时间, 结束时间, 平均概率)
+            action_segment: (start_time, end_time, average_probability, primary_category)
             
         Returns:
-            保存的视频片段路径
+            Path to saved video clip
         """
-        start_time, end_time, avg_prob = action_segment
+        start_time, end_time, avg_prob, category = action_segment
         segment_duration = end_time - start_time
         
-        # 在动作段基础上适当扩展，确保包含完整动作
-        padding = 1.5  # 前后各扩展1.5秒
+        # Extend appropriately based on action segment to ensure complete action is included
+        padding = 1.5  # Extend 1.5 seconds before and after
         clip_start = max(0, start_time - padding)
         clip_end = end_time + padding
         
-        # 创建输出目录
+        # Create output directory
         output_dir = Path("highlights")
         output_dir.mkdir(exist_ok=True)
         
-        # 生成输出文件名
+        # Generate output filename
         clip_filename = f"action_{start_time:.1f}s-{end_time:.1f}s.mp4"
         clip_path = output_dir / clip_filename
         
-        # 计算实际输出时长
+        # Calculate actual output duration
         actual_duration = clip_end - clip_start
         
-        # 使用ffmpeg提取片段
+        # Use ffmpeg to extract clip
         ffmpeg_cmd = f"""
         ffmpeg -i "{self.video_path}" -ss {clip_start} -t {actual_duration} \
         -c:v libx264 -c:a aac -y "{clip_path}"
         """
         
-        print(f"📹 提取动作片段：{clip_start:.1f}s - {clip_end:.1f}s (动作核心: {start_time:.1f}s - {end_time:.1f}s)")
+        print(f"📹 Extracting action clip: {clip_start:.1f}s - {clip_end:.1f}s (action core: {start_time:.1f}s - {end_time:.1f}s)")
         result = os.system(ffmpeg_cmd)
         
         if result != 0:
-            raise RuntimeError(f"视频片段提取失败，命令：{ffmpeg_cmd}")
+            raise RuntimeError(f"Video clip extraction failed, command: {ffmpeg_cmd}")
         
-        print(f"高光片段已保存：{clip_path}")
+        print(f"Highlight clip saved: {clip_path}")
         return str(clip_path)
     
     
-    def visualize_probability_curve(self, timestamps: List[float], probabilities: List[float], action_segments: List[Tuple[float, float, float]]):
+    def visualize_probability_curve(self, timestamps: List[float], probabilities: List[float], action_segments: List[Tuple[float, float, float, str]]):
         """
-        可视化概率曲线和动作时间段
+        Visualize probability curve and action time segments
         """
         plt.figure(figsize=(12, 6))
         plt.plot(timestamps, probabilities, 'b-', linewidth=2, label='Basketball Action Probability')
         
-        # 设定动作检测阈值线
-        action_threshold = 0.3  # 与实际检测使用的阈值保持一致
+        # Set action detection threshold line
+        action_threshold = 0.3  # Keep consistent with actual detection threshold used
         plt.axhline(y=action_threshold, color='r', linestyle='--', alpha=0.7, label=f'Action Threshold ({action_threshold:.3f})')
         
-        # 标记动作时间段
+        # Mark action time segments
         if action_segments:
-            for i, (start, end, avg_prob) in enumerate(action_segments[:3]):  # 显示前3个
-                # 绘制动作时间段的背景
+            for i, (start, end, avg_prob, category) in enumerate(action_segments[:3]):  # Show first 3
+                # Draw action time segment background
                 plt.axvspan(start, end, alpha=0.3, color=f'C{i+2}', label=f'Action Segment {i+1}')
                 
-                # 标注动作段
+                # Annotate action segments
                 mid_time = (start + end) / 2
                 max_prob_in_segment = max([p for t, p in zip(timestamps, probabilities) if start <= t <= end], default=avg_prob)
                 
-                plt.annotate(f'Segment{i+1}\n{start:.1f}s-{end:.1f}s\nAvg: {avg_prob:.3f}', 
+                plt.annotate(f'Segment{i+1}\n{start:.1f}s-{end:.1f}s\nAvg: {avg_prob:.3f}\n{category}', 
                            xy=(mid_time, max_prob_in_segment), xytext=(0, 20), 
                            textcoords='offset points', ha='center',
                            bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7),
@@ -802,96 +782,120 @@ class BasketballHighlightDetector:
         plt.legend()
         plt.grid(True, alpha=0.3)
         
-        # 保存图像
+        # Save image
         plt.savefig('basketball_probability_curve.png', dpi=300, bbox_inches='tight')
-        plt.close()  # 关闭图像，不显示
+        plt.close()  # Close image, don't display
         
-        print("概率曲线已保存：basketball_probability_curve.png")
+        print("Probability curve saved: basketball_probability_curve.png")
     
     def run_detection(self):
         """
-        运行完整的篮球高光检测流程
+        Run complete basketball highlight detection pipeline
         """
         print("=" * 60)
-        print("🏀 开始篮球投球动作时间段检测")
+        print("🏀 Starting basketball action segment detection")
         print("=" * 60)
         
-        # 1. 计算检测时间范围
-        detection_end = self.trigger_time  # 得分板变化时间
-        detection_start = detection_end - self.detection_duration  # 向前10秒
+        # 1. Calculate detection time range
+        detection_end = self.trigger_time  # Score board change time
+        detection_start = detection_end - self.detection_duration  # Backward 10 seconds
         
-        print(f"检测时间范围：{detection_start}s - {detection_end}s")
-        print(f"触发时间（得分板变化）：{self.trigger_time}s")
+        print(f"Detection time range: {detection_start}s - {detection_end}s")
+        print(f"Trigger time (score board change): {self.trigger_time}s")
         
-        # 2. 滑动窗口检测
-        print("\n步骤1：滑动窗口TSM检测...")
-        timestamps, probabilities = self.sliding_window_inference(detection_start, detection_end)
+        # 2. Sliding window detection
+        print("\nStep 1: Sliding window TSM detection...")
+        timestamps, probabilities, detection_info = self.sliding_window_inference(detection_start, detection_end)
         
         if not timestamps:
-            print("未能提取到有效的时间序列数据")
+            print("Failed to extract valid time series data")
             return
         
-        # 3. 寻找动作时间段
-        print("\n步骤2：寻找投球动作时间段...")
-        action_segments = self.find_action_segments(timestamps, probabilities)
+        # 3. Find action segments
+        print("\nStep 2: Finding action segments...")
+        action_segments = self.find_action_segments(timestamps, probabilities, detection_info)
         
         if not action_segments:
-            print("未发现明显的投球动作时间段")
+            print("No obvious action segments detected")
             return
         
-        # 4. 可视化概率曲线
-        print("\n步骤3：生成概率曲线图...")
+        # 4. Visualize probability curve
+        print("\nStep 3: Generating probability curve...")
         self.visualize_probability_curve(timestamps, probabilities, action_segments)
         
-        # 5. 处理最佳动作时间段
-        print("\n步骤4：提取并分析最佳动作片段...")
-        best_segment = action_segments[0]  # 平均概率最高的时间段
-        start_time, end_time, avg_prob = best_segment
+        # 5. Process ALL detected action segments (not just the best one)
+        print(f"\nStep 4: Extracting ALL {len(action_segments)} detected action clips...")
         
-        print(f"🏀 最佳投球时间段：{start_time:.1f}s - {end_time:.1f}s ({end_time-start_time:.1f}s，平均概率: {avg_prob:.3f})")
+        extracted_clips = []
         
-        try:
-            # 提取视频片段
-            clip_path = self.extract_highlight_clip(best_segment)
+        for i, segment in enumerate(action_segments):
+            start_time, end_time, avg_prob, category = segment
+            print(f"\n🏀 Processing action segment {i+1}/{len(action_segments)}:")
+            print(f"   Time range: {start_time:.1f}s - {end_time:.1f}s ({end_time-start_time:.1f}s)")
+            print(f"   Average probability: {avg_prob:.3f}")
+            print(f"   Detected category: {category}")
             
-            # 输出最终结果
-            print("\n" + "=" * 60)
-            print("投球动作检测结果摘要")
-            print("=" * 60)
-            print(f"检测时间范围: {detection_start:.1f}s - {detection_end:.1f}s")
-            print(f"🏀 投球动作时间段: {start_time:.1f}s - {end_time:.1f}s")
-            print(f"📏 动作持续时间: {end_time-start_time:.1f}s")
-            print(f"📊 平均动作概率: {avg_prob:.3f}")
-            print(f"🎥 视频片段: {clip_path}")
+            try:
+                # Extract video clip for this segment
+                clip_path = self.extract_highlight_clip(segment)
+                extracted_clips.append({
+                    "segment_id": i + 1,
+                    "action_start_time": start_time,
+                    "action_end_time": end_time,
+                    "action_duration": end_time - start_time,
+                    "average_probability": avg_prob,
+                    "detected_category": category,
+                    "clip_path": clip_path
+                })
+                print(f"   ✅ Clip saved: {clip_path}")
+                
+            except Exception as e:
+                print(f"   ❌ Failed to extract clip for segment {i+1}: {e}")
+                continue
+        
+        # Output final results for all segments
+        print("\n" + "=" * 60)
+        print("Basketball Action Detection Results Summary")
+        print("=" * 60)
+        print(f"Detection time range: {detection_start:.1f}s - {detection_end:.1f}s")
+        print(f"Total segments detected: {len(action_segments)}")
+        print(f"Successfully extracted clips: {len(extracted_clips)}")
+        
+        if extracted_clips:
+            print("\n🏀 All detected action segments:")
+            for clip_info in extracted_clips:
+                print(f"  Segment {clip_info['segment_id']}:")
+                print(f"    📏 Duration: {clip_info['action_duration']:.1f}s")
+                print(f"    📊 Probability: {clip_info['average_probability']:.3f}")
+                print(f"    🏷️  Category: {clip_info['detected_category']}")
+                print(f"    🎥 File: {clip_info['clip_path']}")
             
             return {
-                "action_start_time": start_time,
-                "action_end_time": end_time,
-                "action_duration": end_time - start_time,
-                "average_probability": avg_prob,
-                "clip_path": clip_path
+                "detection_range": {"start": detection_start, "end": detection_end},
+                "total_segments_detected": len(action_segments),
+                "successfully_extracted": len(extracted_clips),
+                "segments": extracted_clips
             }
-            
-        except Exception as e:
-            print(f"❌ 动作片段处理失败：{e}")
+        else:
+            print("❌ No clips were successfully extracted")
             return None
 
 def main():
-    """主函数"""
+    """Main function"""
     try:
-        # 创建检测器实例
+        # Create detector instance
         detector = BasketballHighlightDetector()
         
-        # 运行检测
+        # Run detection
         result = detector.run_detection()
         
         if result:
-            print("\n🏀 篮球投球动作时间段检测完成！")
+            print("\n🏀 Basketball action segment detection completed!")
         else:
-            print("\n❌ 篮球投球动作时间段检测未成功")
+            print("\n❌ Basketball action segment detection failed")
             
     except Exception as e:
-        print(f"检测过程中发生错误：{e}")
+        print(f"Error occurred during detection: {e}")
         import traceback
         traceback.print_exc()
 
