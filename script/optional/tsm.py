@@ -108,7 +108,7 @@ class BasketballHighlightDetector:
         self.kinetics400_basketball_labels = {
             99: "dribbling basketball",
             107: "dunking basketball", 
-            220: "playing basketball",
+            #220: "playing basketball",
             296: "shooting basketball",
             357: "throwing ball"
         }
