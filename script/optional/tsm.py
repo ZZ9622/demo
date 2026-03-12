@@ -37,6 +37,7 @@ import warnings
 import numpy as np
 import cv2
 import json
+from scipy.ndimage import gaussian_filter1d
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional
 from scipy.signal import find_peaks
@@ -45,6 +46,10 @@ import matplotlib
 import mmdet
 # Set matplotlib backend to avoid display issues
 matplotlib.use('Agg')  # Use non-interactive backend
+
+# Base output directory (relative to current working directory, e.g. project_root/demo)
+OUTPUT_ROOT = Path("output")
+OUTPUT_ROOT.mkdir(exist_ok=True)
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
@@ -124,11 +129,12 @@ class ActionDetector:
             model_checkpoint: TSM model checkpoint file path
         """
         # Set default values if not provided
-        self.video_path = video_path or "/home/SONY/s7000043396/Downloads/demo/data/apidis/camera6_h264.mp4"
-        self.trigger_time = trigger_time if trigger_time is not None else 6657
+        # Default path is relative to CWD (expected to run from `demo/`)
+        self.video_path = video_path or "./data/apidis/camera6_from_1h50m_to_end.mp4"
+        self.trigger_time = trigger_time if trigger_time is not None else 100
         self.detection_duration = detection_duration if detection_duration is not None else 10
         self.save_clips = save_clips  # Control whether to save video clips
-        self.window_stride = 0.3  # Sliding window stride (seconds)
+        self.window_stride = 0.1  # Sliding window stride (seconds)
         # TSM model configuration - Use absolute paths to avoid working directory issues
         self.model = None
         self.device = None  # Device will be initialized in _init_model
@@ -143,7 +149,7 @@ class ActionDetector:
         self.kinetics400_basketball_labels = {
             99: "dribbling basketball",
             107: "dunking basketball", 
-            220: "playing basketball",
+            # 220: "playing basketball",
             296: "shooting basketball",
             357: "throwing ball"
         }
@@ -790,12 +796,12 @@ class ActionDetector:
         clip_start = max(0, start_time - padding)
         clip_end = end_time + padding
         
-        # Create output directory
-        output_dir = Path("highlights")
+        # Create output directory under OUTPUT_ROOT
+        output_dir = OUTPUT_ROOT / "highlights"
         output_dir.mkdir(exist_ok=True)
         
         # Generate output filename
-        clip_filename = f"action_{start_time:.1f}s-{end_time:.1f}s.mp4"
+        clip_filename = f"action_highlight.mp4"
         clip_path = output_dir / clip_filename
         
         # Calculate actual output duration
@@ -856,11 +862,12 @@ class ActionDetector:
         plt.legend()
         plt.grid(True, alpha=0.3)
         
-        # Save image
-        plt.savefig('basketball_probability_curve.png', dpi=300, bbox_inches='tight')
+        # Save image under OUTPUT_ROOT
+        out_img = OUTPUT_ROOT / "basketball_probability_curve.png"
+        plt.savefig(str(out_img), dpi=300, bbox_inches='tight')
         plt.close()  # Close image, don't display
         
-        print("Probability curve saved: basketball_probability_curve.png")
+        print(f"Probability curve saved: {out_img}")
     
     def run_detection(self):
         """
@@ -892,9 +899,24 @@ class ActionDetector:
             print("Failed to extract valid time series data")
             return
         
+        # Apply Gaussian smoothing to probability curve
+        if len(probabilities) >= 3:
+            probs_arr = np.array(probabilities, dtype=float)
+            
+            # 增大 sigma 以增强平滑效果。建议值在 1.5 到 3.0 之间
+            # sigma 越大，曲线越平滑，但过大会导致峰值变矮、时间段变宽
+            sigma_value = 1.5
+            
+            # 使用 gaussian_filter1d，它能更好地处理边界问题
+            smoothed = gaussian_filter1d(probs_arr, sigma=sigma_value)
+            probabilities_smoothed = smoothed.tolist()
+            print(f"Applied Gaussian smoothing (sigma={sigma_value}) to probability curve")
+        else:
+            probabilities_smoothed = probabilities
+        
         # 3. Find action segments
         print("\nStep 2: Finding action segments...")
-        action_segments = self.find_action_segments(timestamps, probabilities, detection_info)
+        action_segments = self.find_action_segments(timestamps, probabilities_smoothed, detection_info)
         
         if not action_segments:
             print("No obvious action segments detected")
@@ -902,7 +924,7 @@ class ActionDetector:
         
         # 4. Visualize probability curve
         print("\nStep 3: Generating probability curve...")
-        self.visualize_probability_curve(timestamps, probabilities, action_segments)
+        self.visualize_probability_curve(timestamps, probabilities_smoothed, action_segments)
         
         # 5. Process ALL detected action segments (not just the best one)
         print(f"\nStep 4: Extracting ALL {len(action_segments)} detected action clips...")
@@ -1035,12 +1057,13 @@ class ActionDetector:
             else:
                 print(f"    Mode: Testing (clips not saved)")
             
-            # Generate JSON output file
-            json_filename = f"detection_results_{int(time.time())}.json"
+            # Generate JSON output file under OUTPUT_ROOT
+            json_filename = f"detection_results.json"
+            json_path = OUTPUT_ROOT / json_filename
             try:
-                with open(json_filename, 'w', encoding='utf-8') as f:
+                with open(json_path, 'w', encoding='utf-8') as f:
                     json.dump(result_data, f, indent=2, ensure_ascii=False)
-                print(f"\nResults saved to: {json_filename}")
+                print(f"\nResults saved to: {json_path}")
             except Exception as e:
                 print(f"WARNING: Failed to save JSON file: {e}")
             
@@ -1058,7 +1081,7 @@ class ActionDetector:
                 "processing_time": total_time,
                 "segments": extracted_clips,
                 "segment_timestamps": result_data["segment_timestamps"],
-                "json_file": json_filename,
+                "json_file": str(json_path),
                 "metadata": result_data["detection_metadata"]
             }
             
@@ -1067,12 +1090,13 @@ class ActionDetector:
             result_data["action_segments"] = []
             result_data["segment_timestamps"] = []
             
-            # Still save empty result to JSON
+            # Still save empty result to JSON under OUTPUT_ROOT
             json_filename = f"detection_results_empty_{int(time.time())}.json"
+            json_path = OUTPUT_ROOT / json_filename
             try:
-                with open(json_filename, 'w', encoding='utf-8') as f:
+                with open(json_path, 'w', encoding='utf-8') as f:
                     json.dump(result_data, f, indent=2, ensure_ascii=False)
-                print(f"\nEmpty results saved to: {json_filename}")
+                print(f"\nEmpty results saved to: {json_path}")
             except Exception as e:
                 print(f"WARNING: Failed to save JSON file: {e}")
                 
