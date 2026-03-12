@@ -116,7 +116,8 @@ class ActionDetector:
     """Action detector for basketball highlights"""
     
     def __init__(self, video_path=None, trigger_time=None, detection_duration=None, 
-                 save_clips=True, model_config=None, model_checkpoint=None):
+                 save_clips=True, model_config=None, model_checkpoint=None,
+                 enable_gaussian_smooth=True, enable_random_noise=False):
         """
         Initialize detector
         
@@ -127,6 +128,8 @@ class ActionDetector:
             save_clips: Whether to save video clips (True=save, False=skip saving for faster testing)
             model_config: TSM model configuration file path
             model_checkpoint: TSM model checkpoint file path
+            enable_gaussian_smooth: Whether to apply Gaussian smoothing to probability curve (default: True)
+            enable_random_noise: Whether to add random noise to probability values (default: False)
         """
         # Set default values if not provided
         # Default path is relative to CWD (expected to run from `demo/`)
@@ -135,6 +138,9 @@ class ActionDetector:
         self.detection_duration = detection_duration if detection_duration is not None else 10
         self.save_clips = save_clips  # Control whether to save video clips
         self.window_stride = 0.1  # Sliding window stride (seconds)
+        # Gaussian and noise control
+        self.enable_gaussian_smooth = enable_gaussian_smooth  # Control Gaussian smoothing
+        self.enable_random_noise = enable_random_noise  # Control random noise
         # TSM model configuration - Use absolute paths to avoid working directory issues
         self.model = None
         self.device = None  # Device will be initialized in _init_model
@@ -682,9 +688,12 @@ class ActionDetector:
         
         self._simulation_counter += 1
         
-        # 7. Add random noise to simulate real fluctuations
-        noise = np.random.normal(0, 0.03)
-        final_score = max(0.05, min(0.95, combined_score + noise))
+        # 7. Add random noise to simulate real fluctuations (optional)
+        if self.enable_random_noise:
+            noise = np.random.normal(0, 0.03)
+            final_score = max(0.05, min(0.95, combined_score + noise))
+        else:
+            final_score = max(0.05, min(0.95, combined_score))
         
         # 8. Enhance peak effects: if score is high, add some non-linear enhancement
         if final_score > 0.4:
@@ -902,8 +911,8 @@ class ActionDetector:
             print("Failed to extract valid time series data")
             return
         
-        # Apply Gaussian smoothing to probability curve
-        if len(probabilities) >= 3:
+        # Apply Gaussian smoothing to probability curve (optional)
+        if self.enable_gaussian_smooth and len(probabilities) >= 3:
             probs_arr = np.array(probabilities, dtype=float)
             
             # 增大 sigma 以增强平滑效果。建议值在 1.5 到 3.0 之间
@@ -916,6 +925,10 @@ class ActionDetector:
             print(f"Applied Gaussian smoothing (sigma={sigma_value}) to probability curve")
         else:
             probabilities_smoothed = probabilities
+            if self.enable_gaussian_smooth and len(probabilities) < 3:
+                print("Warning: Not enough data points for Gaussian smoothing, using original probabilities")
+            elif not self.enable_gaussian_smooth:
+                print("Gaussian smoothing disabled, using original probability curve")
         
         # 3. Find action segments
         print("\nStep 2: Finding action segments...")
@@ -1108,7 +1121,8 @@ class ActionDetector:
             print("ERROR: No segments were successfully processed")
             return None
 
-def main(video_path=None, trigger_time=None, detection_duration=None, save_clips=True):
+def main(video_path=None, trigger_time=None, detection_duration=None, save_clips=True,
+         enable_gaussian_smooth=True, enable_random_noise=False):
     """
     Main function with configurable parameters
     
@@ -1117,6 +1131,8 @@ def main(video_path=None, trigger_time=None, detection_duration=None, save_clips
         trigger_time: Score board change time point (seconds)
         detection_duration: Backward detection duration from trigger_time (seconds)  
         save_clips: Whether to save video clips (True=save, False=skip for faster testing)
+        enable_gaussian_smooth: Whether to apply Gaussian smoothing to probability curve (default: True)
+        enable_random_noise: Whether to add random noise to probability values (default: False)
     
     Returns:
         dict or None: Complete detection results including:
@@ -1132,7 +1148,9 @@ def main(video_path=None, trigger_time=None, detection_duration=None, save_clips
             video_path=video_path,
             trigger_time=trigger_time,
             detection_duration=detection_duration,
-            save_clips=save_clips
+            save_clips=save_clips,
+            enable_gaussian_smooth=enable_gaussian_smooth,
+            enable_random_noise=enable_random_noise
         )
         
         # Run detection
@@ -1166,9 +1184,12 @@ if __name__ == "__main__":
     #     video_path="/path/to/video.mp4",
     #     trigger_time=6700,
     #     detection_duration=10,
-    #     save_clips=True
+    #     save_clips=True,
+    #     enable_gaussian_smooth=True,  # Enable Gaussian smoothing (default: True)
+    #     enable_random_noise=False     # Disable random noise (default: False)
     # )
     # result = detector.run_detection()
     # 
     # Or use the main function:
-    # result = main(video_path="...", trigger_time=6700, save_clips=True)
+    # result = main(video_path="...", trigger_time=6700, save_clips=True,
+    #              enable_gaussian_smooth=True, enable_random_noise=False)
