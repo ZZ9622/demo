@@ -702,7 +702,7 @@ class ActionDetector:
             return []
         
         # Set action detection threshold (relatively low to capture more actions)
-        action_threshold = 0.3  # Adapted to TSM real output range (0.005-0.006)
+        action_threshold = 0.25  # Adapted to TSM real output range (0.005-0.006)
         min_segment_duration = 0.5  # Minimum action time segment (seconds)  
         max_gap_duration = 1.0     # Maximum allowed gap (seconds)
         
@@ -786,7 +786,8 @@ class ActionDetector:
         segment_duration = end_time - start_time
         
         # Extend appropriately based on action segment to ensure complete action is included
-        padding = 1.5  # Extend 1.5 seconds before and after
+        padding = 0.5
+          # Extend 1.5 seconds before and after
         clip_start = max(0, start_time - padding)
         clip_end = end_time + padding
         
@@ -831,7 +832,7 @@ class ActionDetector:
         plt.plot(timestamps, probabilities, 'b-', linewidth=2, label='Basketball Action Probability')
         
         # Set action detection threshold line
-        action_threshold = 0.3  # Keep consistent with actual detection threshold used
+        action_threshold = 0.25  # Keep consistent with actual detection threshold used
         plt.axhline(y=action_threshold, color='r', linestyle='--', alpha=0.7, label=f'Action Threshold ({action_threshold:.3f})')
         
         # Mark action time segments
