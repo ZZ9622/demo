@@ -131,7 +131,7 @@ class ActionDetector:
         # Set default values if not provided
         # Default path is relative to CWD (expected to run from `demo/`)
         self.video_path = video_path or "./data/apidis/camera6_from_1h50m_to_end.mp4"
-        self.trigger_time = trigger_time if trigger_time is not None else 100
+        self.trigger_time = trigger_time if trigger_time is not None else 57
         self.detection_duration = detection_duration if detection_duration is not None else 10
         self.save_clips = save_clips  # Control whether to save video clips
         self.window_stride = 0.1  # Sliding window stride (seconds)
@@ -801,8 +801,10 @@ class ActionDetector:
         output_dir = OUTPUT_ROOT / "highlights"
         output_dir.mkdir(exist_ok=True)
         
-        # Generate output filename
-        clip_filename = f"action_highlight.mp4"
+        # Generate output filename with time range to avoid overwrites
+        start_time_str = f"{int(start_time//60):02d}m{int(start_time%60):02d}s"
+        end_time_str = f"{int(end_time//60):02d}m{int(end_time%60):02d}s"
+        clip_filename = f"action_segment_{start_time_str}-{end_time_str}_{category.replace(' ', '_')}.mp4"
         clip_path = output_dir / clip_filename
         
         # Calculate actual output duration
@@ -972,9 +974,11 @@ class ActionDetector:
                 }
                 
                 if self.save_clips:
-                    print(f"   Clip saved: {clip_path}")
+                    print(f"   ✅ Clip saved: {clip_path}")
+                    print(f"   📁 File name: {clip_filename}")
                 else:
-                    print(f"   Clip processing completed (not saved)")
+                    print(f"   ⚠️  Clip processing completed (not saved due to save_clips=False)")
+                    print(f"   📝 Would save as: {clip_filename}")
                 
             except Exception as e:
                 print(f"   ERROR: Failed to process clip for segment {i+1}: {e}")
