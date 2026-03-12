@@ -9,7 +9,7 @@ Selects the view with higher average people count during specified time period.
 使用示例：
 import sys
 sys.path.append('/home/SONY/s7000043396/Downloads/demo/script/yolo')
-from yolo import get_view_selection
+from LRviewselection import get_view_selection
 
 # 一行调用，获得视角选择
 selected_view = get_view_selection(57)
