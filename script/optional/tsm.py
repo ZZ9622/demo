@@ -143,13 +143,46 @@ class ActionDetector:
         self.kinetics400_basketball_labels = {
             99: "dribbling basketball",
             107: "dunking basketball", 
-            #220: "playing basketball",
+            220: "playing basketball",
             296: "shooting basketball",
             357: "throwing ball"
         }
         
+        # Variables for external research access
+        self.detected_segments = []  # Store detected segment timestamps
+        self.last_detection_result = None  # Store complete detection result
+        
         self._init_model()
     
+    def get_detected_timestamps(self):
+        """
+        Get detected segment timestamps for external research use
+        
+        Returns:
+            list: List of segment timestamps with format:
+                [
+                    {
+                        "segment_id": 1,
+                        "start_time": 6653.5,
+                        "end_time": 6656.2, 
+                        "duration": 2.7,
+                        "category": "shooting basketball",
+                        "probability": 0.881,
+                        "trigger_offset_start": -3.5,
+                        "trigger_offset_end": -0.8
+                    }
+                ]
+        """
+        return self.detected_segments
+    
+    def get_last_result(self):
+        """
+        Get complete last detection result
+        
+        Returns:
+            dict: Complete detection result data
+        """
+        return self.last_detection_result
     
     def _init_model(self):
         """Initialize complete TSM model (bypass transformers issues)"""
@@ -833,7 +866,7 @@ class ActionDetector:
         """
         Run complete basketball highlight detection pipeline
         """
-        start_time = time.time()
+        process_start_time = time.time()
         
         print("=" * 60)
         print("Starting basketball action segment detection")
@@ -886,7 +919,9 @@ class ActionDetector:
             try:
                 # Extract video clip for this segment (or skip if save_clips=False)
                 clip_path = self.extract_highlight_clip(segment)
-                extracted_clips.append({
+                
+                # Create segment data with all timestamps for external use
+                segment_data = {
                     "segment_id": i + 1,
                     "action_start_time": start_time,
                     "action_end_time": end_time,
@@ -894,8 +929,24 @@ class ActionDetector:
                     "average_probability": avg_prob,
                     "detected_category": category,
                     "clip_path": clip_path,
-                    "clip_saved": self.save_clips
-                })
+                    "clip_saved": self.save_clips,
+                    "relative_to_trigger": {
+                        "start_offset": start_time - self.trigger_time,
+                        "end_offset": end_time - self.trigger_time
+                    }
+                }
+                
+                extracted_clips.append(segment_data)
+                
+                # Store segment timestamps for external research access
+                timestamp_info = {
+                    "segment_id": i + 1,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "duration": end_time - start_time,
+                    "category": category,
+                    "probability": avg_prob
+                }
                 
                 if self.save_clips:
                     print(f"   Clip saved: {clip_path}")
@@ -907,24 +958,65 @@ class ActionDetector:
                 continue
         
         # Calculate total processing time
-        total_time = time.time() - start_time
+        total_time = time.time() - process_start_time
+        
+        # Prepare result data with timestamps for external use
+        result_data = {
+            "detection_metadata": {
+                "video_path": self.video_path,
+                "trigger_time": self.trigger_time,
+                "detection_start": detection_start,
+                "detection_end": detection_end,
+                "detection_duration": self.detection_duration,
+                "processing_time": round(total_time, 2),
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "save_clips_enabled": self.save_clips
+            },
+            "detection_results": {
+                "total_segments_detected": len(action_segments),
+                "successfully_processed": len(extracted_clips),
+                "clips_saved": len([c for c in extracted_clips if c['clip_saved']]) if extracted_clips else 0
+            },
+            "action_segments": [],
+            "segment_timestamps": []  # For external research use
+        }
         
         # Output final results for all segments
         print("\n" + "=" * 60)
         print("Basketball Action Detection Results Summary")
         print("=" * 60)
+        print(f"Video path: {self.video_path}")
+        print(f"Trigger time: {self.trigger_time}s")
         print(f"Detection time range: {detection_start:.1f}s - {detection_end:.1f}s")
         print(f"Total segments detected: {len(action_segments)}")
         print(f"Successfully extracted clips: {len(extracted_clips)}")
         print(f"Total processing time: {total_time:.2f} seconds")
         
         if extracted_clips:
+            # Fill result data
+            result_data["action_segments"] = extracted_clips
+            result_data["segment_timestamps"] = [
+                {
+                    "segment_id": clip["segment_id"],
+                    "start_time": clip["action_start_time"],
+                    "end_time": clip["action_end_time"],
+                    "duration": clip["action_duration"],
+                    "category": clip["detected_category"],
+                    "probability": clip["average_probability"],
+                    "trigger_offset_start": clip["relative_to_trigger"]["start_offset"],
+                    "trigger_offset_end": clip["relative_to_trigger"]["end_offset"]
+                }
+                for clip in extracted_clips
+            ]
+            
             print("\nAll detected action segments:")
             for clip_info in extracted_clips:
                 print(f"  Segment {clip_info['segment_id']}:")
+                print(f"    Time: {clip_info['action_start_time']:.1f}s - {clip_info['action_end_time']:.1f}s")
                 print(f"    Duration: {clip_info['action_duration']:.1f}s")
                 print(f"    Probability: {clip_info['average_probability']:.3f}")
                 print(f"    Category: {clip_info['detected_category']}")
+                print(f"    Offset from trigger: {clip_info['relative_to_trigger']['start_offset']:+.1f}s to {clip_info['relative_to_trigger']['end_offset']:+.1f}s")
                 
                 if clip_info['clip_saved']:
                     print(f"    File: {clip_info['clip_path']}")
@@ -933,6 +1025,7 @@ class ActionDetector:
             
             print(f"\nDetection Summary:")
             print(f"    Video analyzed: {self.video_path}")
+            print(f"    Trigger time: {self.trigger_time}s") 
             print(f"    Time range: {detection_start:.1f}s - {detection_end:.1f}s")
             print(f"    Segments detected: {len(action_segments)}")
             print(f"    Clips processed: {len(extracted_clips)}")
@@ -942,15 +1035,47 @@ class ActionDetector:
             else:
                 print(f"    Mode: Testing (clips not saved)")
             
-            return {
+            # Generate JSON output file
+            json_filename = f"detection_results_{int(time.time())}.json"
+            try:
+                with open(json_filename, 'w', encoding='utf-8') as f:
+                    json.dump(result_data, f, indent=2, ensure_ascii=False)
+                print(f"\nResults saved to: {json_filename}")
+            except Exception as e:
+                print(f"WARNING: Failed to save JSON file: {e}")
+            
+            # Store timestamps as class variables for external access
+            self.detected_segments = result_data["segment_timestamps"]
+            self.last_detection_result = result_data
+            
+            # Return comprehensive result
+            return_result = {
                 "detection_range": {"start": detection_start, "end": detection_end},
+                "trigger_time": self.trigger_time,
                 "total_segments_detected": len(action_segments),
                 "successfully_processed": len(extracted_clips),
                 "clips_saved": self.save_clips,
                 "processing_time": total_time,
-                "segments": extracted_clips
+                "segments": extracted_clips,
+                "segment_timestamps": result_data["segment_timestamps"],
+                "json_file": json_filename,
+                "metadata": result_data["detection_metadata"]
             }
+            
+            return return_result
         else:
+            result_data["action_segments"] = []
+            result_data["segment_timestamps"] = []
+            
+            # Still save empty result to JSON
+            json_filename = f"detection_results_empty_{int(time.time())}.json"
+            try:
+                with open(json_filename, 'w', encoding='utf-8') as f:
+                    json.dump(result_data, f, indent=2, ensure_ascii=False)
+                print(f"\nEmpty results saved to: {json_filename}")
+            except Exception as e:
+                print(f"WARNING: Failed to save JSON file: {e}")
+                
             print("ERROR: No segments were successfully processed")
             return None
 
@@ -963,6 +1088,14 @@ def main(video_path=None, trigger_time=None, detection_duration=None, save_clips
         trigger_time: Score board change time point (seconds)
         detection_duration: Backward detection duration from trigger_time (seconds)  
         save_clips: Whether to save video clips (True=save, False=skip for faster testing)
+    
+    Returns:
+        dict or None: Complete detection results including:
+            - trigger_time: the trigger time point
+            - segment_timestamps: list of timestamps for external research
+            - json_file: path to saved JSON results file
+            - processing_time: total processing time
+            Also automatically saves results to JSON file.
     """
     try:
         # Create detector instance with custom parameters
