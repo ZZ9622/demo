@@ -66,12 +66,12 @@ try:
         from mmaction.models.heads.tsm_head import TSMHead  
         from mmaction.models.data_preprocessors.data_preprocessor import ActionDataPreprocessor
         MMACTION2_AVAILABLE = True
-        print("✅ MMAction2 loaded, TSM core components imported successfully")
-        print("   ResNetTSM backbone ✓")
-        print("   TSMHead ✓") 
-        print("   ActionDataPreprocessor ✓")
+        print("MMAction2 loaded, TSM core components imported successfully")
+        print("   ResNetTSM backbone: OK")
+        print("   TSMHead: OK") 
+        print("   ActionDataPreprocessor: OK")
     except ImportError as tsm_error:
-        print(f"⚠️  TSM components encountered import issues: {tsm_error}")
+        print(f"WARNING: TSM components encountered import issues: {tsm_error}")
         if 'transformers' in str(tsm_error) or 'apply_chunking_to_forward' in str(tsm_error):
             # Try to bypass multimodal import issues
             try:
@@ -91,7 +91,7 @@ try:
                 from mmaction.models.data_preprocessors.data_preprocessor import ActionDataPreprocessor
                 
                 MMACTION2_AVAILABLE = True
-                print("✅ Successfully bypassed multimodal issues, TSM components loaded")
+                print("Successfully bypassed multimodal issues, TSM components loaded")
                 
             except Exception as bypass_error:
                 print(f"   Bypass failed: {bypass_error}")
@@ -101,7 +101,7 @@ try:
             raise tsm_error
             
 except ImportError as e:
-    print(f"❌ MMAction2 basic import failed: {e}")
+    print(f"ERROR: MMAction2 basic import failed: {e}")
     MMACTION2_AVAILABLE = False
 
 # Export main classes and functions for module usage
@@ -154,24 +154,24 @@ class ActionDetector:
     def _init_model(self):
         """Initialize complete TSM model (bypass transformers issues)"""
         if not MMACTION2_AVAILABLE:
-            print("❌ MMAction2 not available, cannot load TSM model")
+            print("ERROR: MMAction2 not available, cannot load TSM model")
             self.model = None
             return
         
         # Check GPU availability
         device = 'cuda' if os.system('nvidia-smi') == 0 else 'cpu'
         self.device = device
-        print(f"🖥️  Using device: {device.upper()}")
+        print(f"Using device: {device.upper()}")
         
         # Check if weight file exists
         if not os.path.exists(self.model_checkpoint):
-            print(f"❌ Weight file does not exist: {self.model_checkpoint}")
+            print(f"ERROR: Weight file does not exist: {self.model_checkpoint}")
             print("Please ensure TSM weight file is downloaded")
             self.model = None
             return
         
         try:
-            print("🔧 Building complete TSM model (native components)...")
+            print("Building complete TSM model (native components)...")
             
             # Import necessary components, bypassing transformers issues
             import sys
@@ -312,11 +312,11 @@ class ActionDetector:
                 # Create simplified TSM model instance
                 self.model = SimplifiedTSMModel(self.model_checkpoint, self.device)
                 
-                print("✅ Complete TSM model built successfully")
-                print(f"   - Backbone: ResNetTSM-50 (native)")
-                print(f"   - Classification head: TSMHead (native)")
-                print(f"   - Data preprocessing: ActionDataPreprocessor (native)")
-                print(f"   - Weights: Kinetics400 pretrained")
+                print("Complete TSM model built successfully")
+                print("   - Backbone: ResNetTSM-50 (native)")
+                print("   - Classification head: TSMHead (native)")
+                print("   - Data preprocessing: ActionDataPreprocessor (native)")
+                print("   - Weights: Kinetics400 pretrained")
                 
             finally:
                 # Restore multimodal modules (if needed)
@@ -325,7 +325,7 @@ class ActionDetector:
                         sys.modules[module_name] = module
                         
         except Exception as e:
-            print(f"❌ Complete TSM model build failed: {e}")
+            print(f"ERROR: Complete TSM model build failed: {e}")
             print("Detailed error:")
             import traceback
             traceback.print_exc()
@@ -679,7 +679,7 @@ class ActionDetector:
         current_segment_categories = []
         last_above_threshold_time = None
         
-        print(f"🔍 Finding continuous action time segments (threshold: {action_threshold:.3f})...")
+        print(f"Finding continuous action time segments (threshold: {action_threshold:.3f})...")
         
         for i, (timestamp, prob) in enumerate(zip(timestamps, probabilities)):
             detection = detection_info[i] if i < len(detection_info) else {}
@@ -732,7 +732,7 @@ class ActionDetector:
         # Sort by average probability
         segments.sort(key=lambda x: x[2], reverse=True)
         
-        print(f"🏀 Found {len(segments)} action time segments:")
+        print(f"Found {len(segments)} action time segments:")
         for i, (start, end, avg_prob, category) in enumerate(segments):
             duration = end - start
             print(f"  {i+1}. Time range: {start:.1f}s - {end:.1f}s ({duration:.1f}s), Average probability: {avg_prob:.3f}, Category: {category}")
@@ -768,11 +768,11 @@ class ActionDetector:
         # Calculate actual output duration
         actual_duration = clip_end - clip_start
         
-        print(f"📹 Processing action clip: {clip_start:.1f}s - {clip_end:.1f}s (action core: {start_time:.1f}s - {end_time:.1f}s)")
+        print(f"Processing action clip: {clip_start:.1f}s - {clip_end:.1f}s (action core: {start_time:.1f}s - {end_time:.1f}s)")
         
         if not self.save_clips:
             # Skip actual video extraction for faster testing
-            print(f"⚡ Skipping video extraction (save_clips=False). Would save to: {clip_path}")
+            print(f"Skipping video extraction (save_clips=False). Would save to: {clip_path}")
             return str(clip_path)
         
         # Use ffmpeg to extract clip
@@ -786,7 +786,7 @@ class ActionDetector:
         if result != 0:
             raise RuntimeError(f"Video clip extraction failed, command: {ffmpeg_cmd}")
         
-        print(f"✅ Highlight clip saved: {clip_path}")
+        print(f"Highlight clip saved: {clip_path}")
         return str(clip_path)
     
     
@@ -833,13 +833,15 @@ class ActionDetector:
         """
         Run complete basketball highlight detection pipeline
         """
+        start_time = time.time()
+        
         print("=" * 60)
-        print("🏀 Starting basketball action segment detection")
+        print("Starting basketball action segment detection")
         print("=" * 60)
-        print(f"📁 Video path: {self.video_path}")
-        print(f"⏰ Trigger time: {self.trigger_time}s")
-        print(f"⏳ Detection duration: {self.detection_duration}s")
-        print(f"💾 Save clips: {'Enabled' if self.save_clips else 'Disabled (testing mode)'}")
+        print(f"Video path: {self.video_path}")
+        print(f"Trigger time: {self.trigger_time}s")
+        print(f"Detection duration: {self.detection_duration}s")
+        print(f"Save clips: {'Enabled' if self.save_clips else 'Disabled (testing mode)'}")
         print("=" * 60)
         
         # 1. Calculate detection time range
@@ -876,7 +878,7 @@ class ActionDetector:
         
         for i, segment in enumerate(action_segments):
             start_time, end_time, avg_prob, category = segment
-            print(f"\n🏀 Processing action segment {i+1}/{len(action_segments)}:")
+            print(f"\nProcessing action segment {i+1}/{len(action_segments)}:")
             print(f"   Time range: {start_time:.1f}s - {end_time:.1f}s ({end_time-start_time:.1f}s)")
             print(f"   Average probability: {avg_prob:.3f}")
             print(f"   Detected category: {category}")
@@ -896,13 +898,16 @@ class ActionDetector:
                 })
                 
                 if self.save_clips:
-                    print(f"   ✅ Clip saved: {clip_path}")
+                    print(f"   Clip saved: {clip_path}")
                 else:
-                    print(f"   ⚡ Clip processing completed (not saved)")
+                    print(f"   Clip processing completed (not saved)")
                 
             except Exception as e:
-                print(f"   ❌ Failed to process clip for segment {i+1}: {e}")
+                print(f"   ERROR: Failed to process clip for segment {i+1}: {e}")
                 continue
+        
+        # Calculate total processing time
+        total_time = time.time() - start_time
         
         # Output final results for all segments
         print("\n" + "=" * 60)
@@ -911,39 +916,42 @@ class ActionDetector:
         print(f"Detection time range: {detection_start:.1f}s - {detection_end:.1f}s")
         print(f"Total segments detected: {len(action_segments)}")
         print(f"Successfully extracted clips: {len(extracted_clips)}")
+        print(f"Total processing time: {total_time:.2f} seconds")
         
         if extracted_clips:
-            print("\n🏀 All detected action segments:")
+            print("\nAll detected action segments:")
             for clip_info in extracted_clips:
                 print(f"  Segment {clip_info['segment_id']}:")
-                print(f"    📏 Duration: {clip_info['action_duration']:.1f}s")
-                print(f"    📊 Probability: {clip_info['average_probability']:.3f}")
-                print(f"    🏷️  Category: {clip_info['detected_category']}")
+                print(f"    Duration: {clip_info['action_duration']:.1f}s")
+                print(f"    Probability: {clip_info['average_probability']:.3f}")
+                print(f"    Category: {clip_info['detected_category']}")
                 
                 if clip_info['clip_saved']:
-                    print(f"    🎥 File: {clip_info['clip_path']}")
+                    print(f"    File: {clip_info['clip_path']}")
                 else:
-                    print(f"    📂 Path (not saved): {clip_info['clip_path']}")
+                    print(f"    Path (not saved): {clip_info['clip_path']}")
             
-            print(f"\n📊 Detection Summary:")
-            print(f"    • Video analyzed: {self.video_path}")
-            print(f"    • Time range: {detection_start:.1f}s - {detection_end:.1f}s")
-            print(f"    • Segments detected: {len(action_segments)}")
-            print(f"    • Clips processed: {len(extracted_clips)}")
+            print(f"\nDetection Summary:")
+            print(f"    Video analyzed: {self.video_path}")
+            print(f"    Time range: {detection_start:.1f}s - {detection_end:.1f}s")
+            print(f"    Segments detected: {len(action_segments)}")
+            print(f"    Clips processed: {len(extracted_clips)}")
+            print(f"    Processing time: {total_time:.2f}s")
             if self.save_clips:
-                print(f"    • Clips saved: {len([c for c in extracted_clips if c['clip_saved']])}")
+                print(f"    Clips saved: {len([c for c in extracted_clips if c['clip_saved']])}")
             else:
-                print(f"    • Mode: Testing (clips not saved)")
+                print(f"    Mode: Testing (clips not saved)")
             
             return {
                 "detection_range": {"start": detection_start, "end": detection_end},
                 "total_segments_detected": len(action_segments),
                 "successfully_processed": len(extracted_clips),
                 "clips_saved": self.save_clips,
+                "processing_time": total_time,
                 "segments": extracted_clips
             }
         else:
-            print("❌ No segments were successfully processed")
+            print("ERROR: No segments were successfully processed")
             return None
 
 def main(video_path=None, trigger_time=None, detection_duration=None, save_clips=True):
@@ -969,10 +977,10 @@ def main(video_path=None, trigger_time=None, detection_duration=None, save_clips
         result = detector.run_detection()
         
         if result:
-            print("\n🏀 Basketball action segment detection completed!")
+            print("\nBasketball action segment detection completed!")
             return result
         else:
-            print("\n❌ Basketball action segment detection failed")
+            print("\nERROR: Basketball action segment detection failed")
             return None
             
     except Exception as e:
